@@ -610,7 +610,7 @@
  So one of the ideas is, you know, the voltages are not always one 标幺值,
 
  so let's either take real-time sensor data,
- or just run a 潮流 like you do in LFH,
+ or just run a power flow like you do in LFH,
 
  and get an idea of which buses are likely to have low voltages,
 
@@ -619,7 +619,7 @@
  but that's still constant, so it doesn't ruin the linear structure of the problem.
  The biggest thing is also to have some sort of estimate of losses,
  because if you notice, my formulation here has no estimate of losses whatsoever.
- There's no 电阻 on the lines, so there are no line losses.
+ There's no resistance on the lines, so there are no line losses.
 
  So what Transpower do, and most system operators do,
 

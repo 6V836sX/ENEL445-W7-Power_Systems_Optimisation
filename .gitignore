@@ -1,0 +1,41 @@
+# OS / local noise
+.DS_Store
+**/.DS_Store
+
+# Raw lecture media and source materials
+media/
+source_materials/
+
+# Local workflow instructions, not study deliverables
+review_flow_prompt.md
+
+# Large/raw media formats if accidentally placed in repo root
+*.mp3
+*.mp4
+*.m4a
+*.mov
+*.wav
+
+# Raw scanned/lecture PDFs outside final deliverables
+*.pdf
+!final_notes/*.pdf
+
+# Quarto / LaTeX intermediates
+.quarto/
+*_cache/
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.tex
+
+# Notebook execution by-products
+.ipynb_checkpoints/
+__pycache__/

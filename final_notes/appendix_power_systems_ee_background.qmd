@@ -1,0 +1,614 @@
+---
+title: "Appendix: Power Systems EE Background"
+subtitle: "Supplementary reading for ENEL445 Power Systems Optimisation"
+format:
+  pdf:
+    pdf-engine: xelatex
+    toc: true
+    toc-depth: 1
+    toc-title: "Contents"
+    number-sections: true
+    colorlinks: true
+lang: zh
+documentclass: ctexart
+---
+
+# Purpose
+
+这份 appendix 整理 Lecture A 笔记和课后问题中反复出现的 EE 背景知识。它不是 ENEL445 Power Systems Optimisation 的主要考试公式表，而是帮助理解 lecture 中默认你从 ENEL382/480 已经见过的内容。
+
+重点是建立直觉：
+
+- $P$ 和 $Q$ 是什么；
+- incremental cost 和 $\lambda$ 的物理意义；
+- admittance, conductance, susceptance 是什么；
+- per unit system 为什么常用；
+- LFH / PowerFactory 在 DC OPF 后做什么；
+- 为什么 DC OPF 像 fast surrogate，而 AC power flow 像 higher-fidelity feasibility check。
+
+# Active and Reactive Power
+
+电力系统里常见两个功率量：
+
+| Symbol | English | Chinese | Typical unit | Meaning |
+|---|---|---|---|---|
+| $P$ | active power / real power | 有功功率 | MW | 真正做功、传递能量的功率 |
+| $Q$ | reactive power | 无功功率 | MVAr | 与电压、电磁场能量交换相关的功率 |
+
+Economic dispatch 通常主要考虑 $P$，也就是 active power，因为它直接对应 generator output、load demand 和 energy market cost。
+
+AC OPF 和 AC power flow 则同时涉及 $P$ 和 $Q$，因为真实 AC network 里 voltage magnitude、reactive power、line loading 都会相互影响。
+
+## Power Triangle and Apparent Power
+
+在 AC systems 中，active power $P$ 和 reactive power $Q$ 一起构成 apparent power $S$：
+
+$$
+S^2=P^2+Q^2
+$$
+
+其中：
+
+- $S$ is apparent power, usually measured in VA, kVA, or MVA;
+- $P$ is active/real power, measured in W, kW, or MW;
+- $Q$ is reactive power, measured in var, kvar, or MVAr.
+
+Power factor is:
+
+$$
+\cos\phi=\frac{P}{S}
+$$
+
+Power factor 越接近 1，说明同样的 apparent power capacity 中，有更多比例真正用于 active power transfer；reactive power 占比越低。
+
+直觉上：
+
+- $P$ 是真正被负载消耗并转化为 mechanical work, heat, or light 的功率；
+- $Q$ 不被净消耗，而是在 source 和 inductive/capacitive elements 之间来回交换；
+- $S$ 代表设备必须承受的总电压-电流容量。
+
+这就是为什么 transformer/generator ratings 常用 MVA，而不是只用 MW。即使 MW 不高，如果 MVAr 很大，电流也可能很大，设备仍可能过热或超限。
+
+## Why Units Differ: MW, MVAr, and MVA
+
+从物理量纲看，active power、reactive power、apparent power 都来自 voltage times current。但工程上为了避免混淆，使用不同单位名称：
+
+| Quantity | Unit | Why this name matters |
+|---|---|---|
+| $P$ active power | W / MW | real energy conversion rate |
+| $Q$ reactive power | var / MVAr | reactive energy exchange rate |
+| $S$ apparent power | VA / MVA | equipment capacity from voltage-current product |
+
+`var` means volt-ampere reactive. It is used to make clear that $Q$ is not real consumed energy, even though it affects current, voltage, and equipment loading.
+
+## Why Economic Dispatch Mainly Uses $P$
+
+Economic dispatch focuses mainly on active power $P$ for three reasons.
+
+1. Fuel cost is mostly linked to active power output. Burning coal or gas mainly produces MW.
+2. System frequency is mainly linked to active power balance:
+
+$$
+P_{gen}\approx P_{load}
+$$
+
+3. Classical power-system analysis often uses the decoupled intuition:
+
+| Coupling | Main control issue |
+|---|---|
+| $P$--frequency | active power balance and dispatch |
+| $Q$--voltage | voltage support and reactive power control |
+
+This is only an approximation, but it explains why economic dispatch is mostly a $P$ problem, while AC OPF and voltage control must also consider $Q$.
+
+Short explanation:
+
+> Economic dispatch mainly considers active power because generator fuel cost and system frequency balance are primarily associated with MW. Reactive power is still important, but it is more closely associated with voltage support, equipment limits, and AC feasibility.
+
+# Incremental Cost and Lambda
+
+Generator $i$ 的成本函数可以写成：
+
+$$
+C_i(P_{G_i})
+$$
+
+Incremental cost 是：
+
+$$
+IC_i(P_{G_i})=
+\frac{dC_i(P_{G_i})}{dP_{G_i}}
+$$
+
+它表示：
+
+> generator $i$ 多发一点 active power 时，它自己的成本增加速率。
+
+在不考虑 losses 的 economic dispatch 中，一阶条件给出：
+
+$$
+IC_i(P_{G_i})=\lambda
+$$
+
+对所有正在运行且没有碰到 limit 的 generator 成立。
+
+这里 $\lambda$ 通常可以解释为：
+
+> system demand 增加 1 MW 时，最优运行成本增加多少。
+
+这也就是 shadow price / marginal price 的含义。在电力市场中，$\lambda$ 常和 marginal electricity price 联系在一起。
+
+# Sign Convention for Lambda
+
+Economic dispatch 的 equality constraint 可以有不同写法。例如：
+
+$$
+P_D-\sum_iP_{G_i}=0
+$$
+
+或者：
+
+$$
+\sum_iP_{G_i}-P_D=0
+$$
+
+这会影响 Lagrangian 中 $\lambda$ 的符号。因此看到 $\lambda$ 的正负号不一致时，先检查 constraint 写法。
+
+在很多 power systems 教材里，喜欢写成：
+
+$$
+\mathcal{L}
+=
+\sum_i C_i(P_{G_i})
++
+\lambda
+\left(
+P_D-\sum_iP_{G_i}
+\right)
+$$
+
+这样得到的 $\lambda$ 更自然地是正的 marginal cost / shadow price。
+
+# Penalty Factor and Independent Variables
+
+考虑 losses 时，power balance 变成：
+
+$$
+P_D+P_L(P_G)-\sum_iP_{G_i}=0
+$$
+
+其中 $P_L(P_G)$ 是 total transmission losses。它依赖整个 dispatch vector：
+
+$$
+P_G=
+\begin{bmatrix}
+P_{G_1} & P_{G_2} & \cdots & P_{G_m}
+\end{bmatrix}^T
+$$
+
+所以 sensitivity 写成偏导：
+
+$$
+\frac{\partial P_L(P_G)}{\partial P_{G_i}}
+$$
+
+这表示：
+
+> 在当前 dispatch 附近，沿着第 $i$ 台 generator output 的方向变化时，total losses 怎么变。
+
+Penalty factor:
+
+$$
+L_i=
+\frac{1}{1-\frac{\partial P_L}{\partial P_{G_i}}}
+$$
+
+Optimal condition with losses:
+
+$$
+L_iIC_i(P_{G_i})=\lambda
+$$
+
+直觉：
+
+- $IC_i$ 是 generator 自己的 marginal cost；
+- $L_i$ 是 network losses 带来的 correction；
+- $L_iIC_i$ 是考虑 losses 后的 effective marginal cost。
+
+实际工程中，用 finite difference 算 penalty factor 时，一台 generator 增加出力，slack/reference generator 可能会补偿系统平衡。这仍然是在估计第 $i$ 个 injection direction 对 losses 的 sensitivity。
+
+# Uniform Pricing and Pay-as-Bid
+
+Uniform pricing / pay-as-cleared 的核心：
+
+> all accepted generators are paid the same market-clearing price.
+
+这个 clearing price 通常由 marginal accepted generator 决定，也就是“最后一台必须运行的、最贵的 generator”的 marginal cost。
+
+因此，如果 demand 高到必须启用 gas generator，而 gas 的 marginal cost 很高，那么 market price 会升高。低成本 generator，例如 hydro，虽然自己的成本低，但也按同一个 market price 收钱，所以利润增加。
+
+简化例子：
+
+| Generator | Marginal cost | Accepted? |
+|---|---:|---|
+| Wind | 5 \$/MWh | yes |
+| Hydro | 20 \$/MWh | yes |
+| Coal | 60 \$/MWh | yes |
+| Gas | 120 \$/MWh | yes when demand is high |
+
+如果 gas 是 marginal generator，则 market price 可能是：
+
+$$
+120\ \$/MWh
+$$
+
+Hydro 的 profit margin 可能是：
+
+$$
+120-20=100\ \$/MWh
+$$
+
+Pay-as-bid 看起来像是每台 generator 只拿自己的 bid，但它会鼓励 bidders 去猜 clearing price，而不是透露 true marginal cost。这可能导致 strategic bidding 和 inefficient dispatch。
+
+# Admittance and Bus Coupling
+
+Power-flow equations 的基础是电网中 bus 之间的电气耦合。线路参数常用 admittance 表示：
+
+$$
+Y_{ij}=G_{ij}+jB_{ij}
+$$
+
+其中：
+
+| Symbol | English | Chinese | Meaning |
+|---|---|---|---|
+| $Y_{ij}$ | admittance | 导纳 | 电流通过线路的容易程度 |
+| $G_{ij}$ | conductance | 电导 | 与 resistance 和 real power losses 相关 |
+| $B_{ij}$ | susceptance | 电纳 | 与 reactance、field energy exchange 相关 |
+| $j$ | imaginary unit | 虚数单位 | $j^2=-1$ |
+
+直觉：
+
+> $Y_{ij}$ 描述 bus $i$ 和 bus $j$ 之间电气连接的强弱。
+
+导纳越大，阻碍越小，bus 之间电气连接越强，power 更容易流动。
+
+Power-flow equations 复杂的原因是 bus coupling：
+
+- bus $i$ 的 voltage magnitude $V_i$ 会影响相邻 line flows；
+- bus $i$ 的 voltage angle $\theta_i$ 也会影响相邻 line flows；
+- 通过 $Y_{ij}$，一个 bus 的状态会影响连接到它的其他 buses。
+
+这就是“牵一发而动全身”的网络耦合。
+
+# Susceptance
+
+Susceptance $B$ 是 admittance 的 imaginary part：
+
+$$
+Y=G+jB
+$$
+
+Admittance 是 impedance 的倒数：
+
+$$
+Y=\frac{1}{Z}
+$$
+
+如果：
+
+$$
+Z=R+jX
+$$
+
+则：
+
+$$
+Y=\frac{1}{R+jX}
+=
+\frac{R-jX}{R^2+X^2}
+=
+\frac{R}{R^2+X^2}
+-
+j\frac{X}{R^2+X^2}
+$$
+
+所以：
+
+$$
+G=\frac{R}{R^2+X^2}
+$$
+
+$$
+B=-\frac{X}{R^2+X^2}
+$$
+
+如果是纯 reactance，没有 resistance，则：
+
+$$
+B=-\frac{1}{X}
+$$
+
+物理意义：
+
+- $G$ 代表 real power loss / energy dissipation；
+- $B$ 代表 reactive behaviour / energy exchange with electric or magnetic fields。
+
+在 power systems 里，transmission lines 通常 reactance 很重要，所以 $B$ 在 DC power flow 近似中经常出现。
+
+# Per Unit System
+
+`per unit system` 更准确翻译为 **标幺制**。
+
+| English | Chinese |
+|---|---|
+| per unit system | 标幺制 |
+| per unit | 标幺 |
+| p.u. | p.u. / 标幺 |
+| one per unit | 1 p.u. / 1 标幺值 |
+
+定义：
+
+$$
+V_{p.u.}=
+\frac{V_{actual}}{V_{base}}
+$$
+
+如果 base voltage 是：
+
+$$
+V_{base}=230\text{ V}
+$$
+
+实际电压为：
+
+$$
+V_{actual}=230\text{ V}
+$$
+
+则：
+
+$$
+V_{p.u.}=\frac{230}{230}=1.0
+$$
+
+如果实际电压是 220 V：
+
+$$
+V_{p.u.}=\frac{220}{230}=0.9565
+$$
+
+如果实际电压是 240 V：
+
+$$
+V_{p.u.}=\frac{240}{230}=1.0435
+$$
+
+所以 lecture 里说：
+
+> voltage should be close to one per unit
+
+意思是：
+
+> 正常运行时，bus voltage magnitude 应该接近额定值，也就是接近 1 p.u.
+
+这对 optimisation 有帮助，因为 AC OPF 是 nonlinear optimisation。求解器需要初始猜测，而我们知道正常状态下：
+
+$$
+V_i\approx1.0\text{ p.u.}
+$$
+
+所以可以从：
+
+$$
+V_i=1.0,\quad \theta_i\approx0
+$$
+
+附近开始，比随机初始值更容易收敛。
+
+# LFH, PowerFactory, and AC Power Flow Check
+
+Lecture 中的 `LFH` 从上下文看，是一个 load-flow / power-flow 软件或工具，和 PowerFactory 并列：
+
+> inputting everything into a program like LFH, or PowerFactory
+
+它不是一个理论概念，而是在这里表示：
+
+> a tool used to run a standard AC power flow / load flow.
+
+典型流程：
+
+1. Solve DC OPF quickly.
+2. Take the dispatch result from DC OPF.
+3. Input it into an AC power flow tool such as LFH or PowerFactory.
+4. Check whether the solution is feasible under AC network physics.
+
+AC power flow check 会看：
+
+- bus voltages 是否合理；
+- line flows 是否超限；
+- reactive power 是否可行；
+- AC power-flow equations 是否能收敛；
+- DC OPF dispatch 是否在更高保真的 AC model 中可行。
+
+重要区别：
+
+> Running AC power flow is a feasibility check, not the same as solving AC OPF.
+
+# State Estimation Extra Background
+
+Lecture B spends more time on state estimation. The important EE intuition is:
+
+> state estimation estimates what is happening in the network from imperfect measurements.
+
+In the DC model, active power flow is based on angle differences:
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j)
+$$
+
+So if we can estimate voltage angles, we can infer line power flows.
+
+## Why a Reference Angle Is Needed
+
+Only angle differences matter. If every voltage angle is shifted by the same constant, all power flows remain the same:
+
+$$
+(\theta_i+c)-(\theta_j+c)=\theta_i-\theta_j
+$$
+
+So one bus must be chosen as a reference, such as:
+
+$$
+\theta_1=0
+$$
+
+or:
+
+$$
+\theta_3=0
+$$
+
+The choice of reference does not change the physical solution; it only fixes the coordinate system.
+
+## Constructing the $H$ Matrix
+
+In linear state estimation:
+
+$$
+z=Hx+e
+$$
+
+where:
+
+- $z$ is the measurement vector;
+- $x$ is the state vector, usually unknown voltage angles after removing the reference angle;
+- $H$ is the system model matrix;
+- $e$ is measurement error.
+
+For example, if $\theta_1=0$ and:
+
+$$
+x=
+\begin{bmatrix}
+\theta_2\\
+\theta_3
+\end{bmatrix}
+$$
+
+then a measurement:
+
+$$
+P_{12}=B_{12}(\theta_1-\theta_2)
+$$
+
+becomes:
+
+$$
+P_{12}=-B_{12}\theta_2
+$$
+
+so the corresponding row of $H$ is:
+
+$$
+\begin{bmatrix}
+-B_{12} & 0
+\end{bmatrix}
+$$
+
+Similarly:
+
+$$
+P_{13}=B_{13}(\theta_1-\theta_3)
+$$
+
+gives:
+
+$$
+\begin{bmatrix}
+0 & -B_{13}
+\end{bmatrix}
+$$
+
+and:
+
+$$
+P_{32}=B_{32}(\theta_3-\theta_2)
+$$
+
+gives:
+
+$$
+\begin{bmatrix}
+-B_{32} & B_{32}
+\end{bmatrix}
+$$
+
+The exact signs depend on the direction convention for each measured line flow, so always match the row of $H$ to the stated $P_{ij}$ direction.
+
+## Measurement Weights
+
+Weighted least squares uses:
+
+$$
+\min_x(z-Hx)^TR^{-1}(z-Hx)
+$$
+
+where:
+
+$$
+R=\mathrm{diag}(\sigma_1^2,\sigma_2^2,\dots,\sigma_m^2)
+$$
+
+Here $\sigma_i$ is the standard deviation of measurement $i$. Smaller $\sigma_i$ means the meter is trusted more, so its error is penalised more heavily.
+
+If all measurements have the same accuracy, $R$ is a constant multiple of the identity matrix and the solution is the same as ordinary least squares.
+
+## Over-Determined Problems
+
+State estimation usually wants more measurements than unknowns. This gives an over-determined problem:
+
+$$
+\text{number of measurements}>\text{number of unknown states}
+$$
+
+Then least squares finds the best fit rather than trying to satisfy every noisy measurement exactly.
+
+Under-determined state estimation is usually avoided. If there are not enough measurements, pseudo-measurements are added. Because these are uncertain, they are assigned large standard deviations and therefore low weights.
+
+## Bad Data and PMUs
+
+Bad data can strongly distort least-squares estimates. A single wrong decimal point can dominate the solution. Practical state estimation therefore often includes bad-data detection.
+
+PMUs, or Phasor Measurement Units, provide synchronized phasor measurements and can improve state estimation. However, modern grids with inverter-based resources, solar, wind, and changing loads make state estimation more dynamic and harder.
+
+# Surrogate Optimisation and Replay in a Higher-Fidelity Simulator
+
+这一章的 industrial workflow 和 synthetic data / simulator replay 很像。
+
+| General idea | Power systems version |
+|---|---|
+| simplified / surrogate model | DC OPF |
+| candidate solution | dispatch result |
+| replay in real simulator | run standard AC power flow |
+| feasibility check | check voltages, line limits, power balance |
+| correction loop | add heuristic/security constraints and re-solve DC OPF |
+
+可以总结成：
+
+> optimise in a simplified model, validate in a higher-fidelity model, then add corrections if needed.
+
+但要注意：AC power flow 仍然是数学模型，不是真实世界本身。它只是比 DC OPF 更高保真。
+
+# Quick Memory
+
+- $P$: active power, MW, used in economic dispatch.
+- $Q$: reactive power, MVAr, important in AC power flow and voltage behaviour.
+- $IC_i=dC_i/dP_{G_i}$: generator incremental cost.
+- $\lambda$: shadow price / marginal cost of serving extra demand.
+- $Y=G+jB$: admittance equals conductance plus susceptance.
+- $B$: susceptance, linked to reactance and reactive behaviour.
+- Per unit system: divide actual value by base value.
+- $1$ p.u.: rated/base value.
+- LFH / PowerFactory: tools for AC load-flow / power-flow feasibility checks.
+- DC OPF is a fast surrogate; AC power flow checks feasibility, not optimality.

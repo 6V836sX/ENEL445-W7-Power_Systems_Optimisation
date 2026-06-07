@@ -1,0 +1,285 @@
+---
+title: "ENEL445 Power Systems Optimisation Cheat Sheet"
+subtitle: "Compact formulas and exam templates"
+format:
+  pdf:
+    pdf-engine: xelatex
+    toc: false
+    number-sections: false
+    colorlinks: true
+geometry: margin=0.35in
+fontsize: 7pt
+lang: en
+classoption:
+  - twocolumn
+header-includes:
+  - \usepackage{enumitem}
+  - \setlist{nosep,leftmargin=*}
+  - \setlength{\parindent}{0pt}
+  - \setlength{\parskip}{1pt}
+---
+
+### Exam context
+
+Final exam: 2 h, 2 questions, 40 marks. Q2 is mixed Term 2 material: power systems, game theory, LMIs. More mathematical than last year's exam, so prioritise formulas, scaling, and formulations over prose.
+
+### Economic dispatch
+
+Meet total demand at minimum cost, ignoring network flows/losses/constraints:
+
+$$
+\min_{P_{G_i}}\sum_i C_i(P_{G_i}),\quad
+P_{G_i}^{min}\le P_{G_i}\le P_{G_i}^{max},\quad
+\sum_iP_{G_i}=P_D
+$$
+
+Merit order: accept cheapest bids until demand is met. For smooth quadratic dispatch with no active limits:
+
+$$
+\frac{dC_i}{dP_{G_i}}=\lambda
+$$
+
+Meaning: active generators have equal marginal cost at optimum.
+
+### Penalty factors
+
+With losses:
+
+$$
+P_D+P_L(P_G)-\sum_iP_{G_i}=0
+$$
+
+$$
+L_i=\frac{1}{1-\frac{\partial P_L}{\partial P_{G_i}}},\qquad
+L_iIC_i(P_{G_i})=\lambda
+$$
+
+Approximate:
+
+$$
+\frac{\partial P_L}{\partial P_{G_i}}\approx \frac{\Delta P_L}{\Delta P_{G_i}}
+$$
+
+Phrase: penalty factor modifies apparent incremental cost to account for how changing generator output changes transmission losses. $L_i>1$ makes generator appear more expensive; $L_i<1$ makes it appear cheaper.
+
+### Market pricing
+
+Uniform price: NZ and most markets; all accepted generators get the market-clearing price; price is set by the marginal accepted generator; encourages bids closer to cost; low-cost hydro benefits when high-cost gas sets the price.
+
+Pay-as-bid: UK-style example; each accepted generator gets its own bid; payment is set by each bid; bidders try to guess the clearing price; strategic bids can distort dispatch.
+
+Phrase: in uniform pricing, low-cost hydro benefits when expensive gas enters because gas raises the clearing price, and all accepted generators receive that market price. Pay-as-bid seems cheaper, but bidders may inflate bids to guess the clearing price.
+
+### ED vs DC OPF vs AC OPF vs SC-OPF
+
+Economic dispatch: total balance + generator costs only. Fast, ignores network.
+
+DC OPF: linearised active-power flows + line limits. Fast enough for real-time dispatch.
+
+AC OPF: full AC power-flow equations, voltage magnitudes/angles, real/reactive power, line/generator/voltage limits. More accurate but large, nonlinear, non-convex.
+
+SC-OPF: OPF plus contingency constraints. Security-aware but much larger.
+
+### Why AC OPF is hard
+
+Use all points:
+
+- many variables: $P_G,Q_G,V,\theta,P_{ij},Q_{ij}$;
+- many constraints: power balance, flow equations, voltage/generator/line limits;
+- nonlinear $\sin,\cos$ AC equations;
+- non-convex equality constraints;
+- real-time dispatch needs minutes, not hours;
+- SC-OPF repeats/checks constraints under contingencies.
+
+Mitigate: DC OPF surrogate; interior-point solver for full AC OPF; warm start near $V\approx1$ p.u.; voltage estimates as constants; piecewise linear $I^2R$ losses; AC power-flow feasibility check; contingency screening and heuristic constraints.
+
+### Convex/KKT reminder
+
+Convex problem: minimise convex $f_0(x)$ subject to convex inequalities $g_i(x)\le0$ and affine equalities $Ax=b$. Nonlinear equality constraints usually destroy convexity.
+
+KKT: stationarity $\nabla_xL=0$; primal feasibility; dual feasibility $\lambda_i\ge0$; complementary slackness $\lambda_i g_i(x)=0$.
+
+Convex + regularity: KKT necessary and sufficient for global optimum. Non-convex: KKT usually only necessary for local optimum.
+
+### Algorithm: interior point
+
+Best practical large AC OPF choice. Reason: large smooth nonlinear constrained problem; many inequalities; sparse network structure; scales better than SQP. GA/PSO too slow for huge variable count.
+
+Barrier form:
+
+$$
+\min_x f(x),\ g_i(x)\le0,\ h_j(x)=0
+$$
+
+$$
+\min_x f(x)-\mu\sum_i\log(-g_i(x))\quad s.t.\quad h_j(x)=0
+$$
+
+Decrease $\mu$ toward constrained optimum.
+
+### OPF scaling estimate
+
+Given scaling:
+
+$$
+O((n+n_g+n_h)^3),\quad N=n+n_g+n_h
+$$
+
+Then:
+
+$$
+\frac{t_2}{t_1}\approx \left(\frac{N_2}{N_1}\right)^3
+$$
+
+With five-fold nonlinear AC slowdown:
+
+$$
+t_{AC}\approx5t_{DC}\left(\frac{N_{AC}}{N_{DC}}\right)^3
+$$
+
+Counting: DC OPF has active powers/angles, active flow constraints, line limits. AC OPF adds voltage magnitudes, reactive powers, nonlinear flow equations, voltage/reactive limits. If told generator count negligible, ignore it.
+
+### DC OPF
+
+DC OPF is a DC approximation of AC power flow, not a DC grid model.
+
+Assumptions:
+
+1. ignore reactive power;
+2. $V_i=1$ p.u.;
+3. small angle differences:
+
+$$
+\sin(\theta_i-\theta_j)\approx\theta_i-\theta_j,\quad \cos(\theta_i-\theta_j)\approx1
+$$
+
+4. negligible resistance, lossless network.
+
+Linear active-power flow:
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j)
+$$
+
+Industry workflow: solve DC OPF; estimate losses if needed using approximate current and piecewise linear $I^2R$; run standard AC power flow to check feasibility; add heuristic/security constraints and re-solve if infeasible.
+
+Important: AC power-flow check after DC OPF is not AC OPF.
+
+### SC-OPF
+
+Definition: dispatch remains feasible under credible contingencies, e.g. line/generator outages.
+
+Difference: regular OPF checks base case; SC-OPF checks base case plus contingency cases.
+
+Why hard: each contingency adds/checks another set of operational constraints; many contingencies possible; can be orders of magnitude larger than AC OPF.
+
+Practice: solve DC OPF, check selected contingencies, add heuristic constraints, re-solve until acceptable.
+
+### State estimation
+
+Estimate voltage states from noisy/incomplete measurements:
+
+$$
+z=h(x)+e
+$$
+
+Weighted least squares:
+
+$$
+\min_x(z-h(x))^TR^{-1}(z-h(x))
+$$
+
+Equal standard deviations:
+
+$$
+\min_x\|z-h(x)\|_2^2
+$$
+
+Linear case $h(x)=Hx$:
+
+$$
+\min_x\|z-Hx\|_2^2,\quad
+\hat{x}=(H^TH)^{-1}H^Tz
+$$
+
+Weighted:
+
+$$
+\hat{x}=(H^TR^{-1}H)^{-1}H^TR^{-1}z
+$$
+
+If only angle differences are observable, choose a reference angle.
+
+Cases: under-determined = not enough measurements, usually add pseudo-measurements; over-determined = more measurements than states, usual least-squares case. $R=\mathrm{diag}(\sigma_i^2)$; large $\sigma_i$ means low trust/low weight.
+
+### Linear SE template
+
+Given:
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j),\quad
+z=[P_{12}^{m},P_{13}^{m},P_{32}^{m}]^T
+$$
+
+Set $\theta_1=0$, $x=[\theta_2,\theta_3]^T$:
+
+$$
+H=
+\begin{bmatrix}
+-B_{12}&0\\
+0&-B_{13}\\
+-B_{32}&B_{32}
+\end{bmatrix}
+$$
+
+because $P_{12}=B_{12}(0-\theta_2)$, $P_{13}=B_{13}(0-\theta_3)$, $P_{32}=B_{32}(\theta_3-\theta_2)$.
+
+Answer:
+
+$$
+\min_x\|z-Hx\|_2^2
+$$
+
+Define $z,x,H$.
+
+### Nonlinear SE template
+
+AC measurement functions:
+
+$$
+P_{ij}(x)=V_iV_jB_{ij}\sin(\theta_i-\theta_j)
+$$
+
+$$
+Q_{ij}(x)=V_i(V_i-V_j\cos(\theta_i-\theta_j))B_{ij}
+$$
+
+Example:
+
+$$
+x=[V_1,V_2,V_3,\theta_1,\theta_2,\theta_3]^T
+$$
+
+If unknown parameter, include it, e.g. $B_{32}$:
+
+$$
+x=[V_1,V_2,V_3,\theta_1,\theta_2,\theta_3,B_{32}]^T
+$$
+
+Build $z$ from measured $P,Q,V,\theta$. Build $h(x)$ with corresponding predicted measurements, then write:
+
+$$
+\min_x\|z-h(x)\|_2^2
+$$
+
+Do not solve unless asked.
+
+### Short phrases
+
+- ED ignores network; OPF includes network physics.
+- AC OPF is nonlinear/non-convex due to AC flow equations.
+- DC OPF is a fast linear surrogate.
+- SC-OPF adds contingency constraints.
+- LMPs come from OPF Lagrange multipliers.
+- Pseudo-measurements have large standard deviation and low weight.
+- Define variables before writing the objective.

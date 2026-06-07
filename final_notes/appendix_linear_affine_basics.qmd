@@ -1,0 +1,410 @@
+---
+title: "Appendix: Linear, Affine, and Offset Terms"
+subtitle: "Basic concepts for optimisation and engineering models"
+format:
+  pdf:
+    pdf-engine: xelatex
+    toc: true
+    toc-depth: 1
+    toc-title: "Contents"
+    number-sections: true
+    colorlinks: true
+lang: zh
+documentclass: ctexart
+---
+
+# Why This Appendix Matters
+
+在 optimisation 里，`linear` 和 `affine` 不是随便换用的词。它们关系到：
+
+- convex optimisation 的定义；
+- equality constraints 为什么必须是 affine；
+- KKT 条件什么时候能保证 global optimum；
+- 工程模型里的 offset / bias / fixed demand 怎么理解。
+
+核心记忆：
+
+| Expression | Name | Intuition |
+|---|---|---|
+| $Ax$ | linear map | 线性变换，必须过原点 |
+| $Ax+b$ | affine map | 线性变换加平移 |
+| $Ax=0$ | linear constraint / subspace | 过原点的平面或子空间 |
+| $Ax=b$ | affine constraint / affine set | 平移后的平面，通常不过原点 |
+
+# Linear Map
+
+严格数学里的 linear function / linear map 需要满足两个性质。
+
+## Additivity
+
+$$
+f(x+y)=f(x)+f(y)
+$$
+
+## Homogeneity
+
+$$
+f(\alpha x)=\alpha f(x)
+$$
+
+合起来就是：
+
+$$
+f(\alpha x+\beta y)=\alpha f(x)+\beta f(y)
+$$
+
+从这个定义可以推出：
+
+$$
+f(0)=0
+$$
+
+所以严格意义上，linear map 必须把原点映射到原点。
+
+# Matrix Form of Linearity
+
+设：
+
+$$
+f(x)=Ax
+$$
+
+则：
+
+$$
+f(x+y)=A(x+y)=Ax+Ay=f(x)+f(y)
+$$
+
+这就是 additivity。
+
+又因为：
+
+$$
+f(\alpha x)=A(\alpha x)=\alpha Ax=\alpha f(x)
+$$
+
+这就是 homogeneity。
+
+更一般地：
+
+$$
+f(\alpha x+\beta y)
+=
+A(\alpha x+\beta y)
+=
+\alpha Ax+\beta Ay
+=
+\alpha f(x)+\beta f(y)
+$$
+
+所以 $f(x)=Ax$ 是 linear map。
+
+# Affine Map
+
+Affine map 的形式是：
+
+$$
+f(x)=Ax+b
+$$
+
+它是：
+
+> linear transformation plus translation.
+
+也就是先做 $Ax$ 这种线性变换，再加上 $b$ 这个平移或偏移。
+
+如果 $b\ne0$，它通常不是 linear map，因为：
+
+$$
+f(0)=b\ne0
+$$
+
+## Additivity Fails
+
+对于：
+
+$$
+f(x)=Ax+b
+$$
+
+有：
+
+$$
+f(x+y)=A(x+y)+b=Ax+Ay+b
+$$
+
+但：
+
+$$
+f(x)+f(y)=(Ax+b)+(Ay+b)=Ax+Ay+2b
+$$
+
+所以一般：
+
+$$
+f(x+y)\ne f(x)+f(y)
+$$
+
+除非 $b=0$。
+
+## Homogeneity Fails
+
+同理：
+
+$$
+f(\alpha x)=A(\alpha x)+b=\alpha Ax+b
+$$
+
+但：
+
+$$
+\alpha f(x)=\alpha(Ax+b)=\alpha Ax+\alpha b
+$$
+
+所以一般：
+
+$$
+f(\alpha x)\ne \alpha f(x)
+$$
+
+除非 $b=0$ 或特殊情况下 $\alpha=1$。
+
+# Why Affine Is Called 仿射
+
+`affine` 翻译成“仿射”，来自 affine geometry。它的几何直觉是：
+
+> 保持直线和平行关系，但允许整体平移。
+
+Affine transformation 可以包括：
+
+- stretching;
+- rotation;
+- shear;
+- projection;
+- reflection;
+- translation.
+
+它不会把直线变成曲线。线还是线，平面还是平面，只是位置和比例可能变了。
+
+因此：
+
+$$
+y=3x
+$$
+
+是 linear，因为它过原点。
+
+而：
+
+$$
+y=3x+2
+$$
+
+是 affine，因为它是把 $y=3x$ 向上平移 2。
+
+在高中或日常语言中，$y=3x+2$ 常被叫作 linear graph，因为图像是直线。但在 linear algebra / optimisation 里，它是 affine, not strictly linear。
+
+# Constraint Sets
+
+## $Ax=0$ Defines a Linear Subspace
+
+如果：
+
+$$
+Ax=0,\quad Ay=0
+$$
+
+令：
+
+$$
+z=\alpha x+\beta y
+$$
+
+则：
+
+$$
+Az=A(\alpha x+\beta y)=\alpha Ax+\beta Ay=0
+$$
+
+所以 $Ax=0$ 的解集对加法和数乘封闭，是 linear subspace。
+
+直觉：
+
+> $Ax=0$ 通常表示过原点的直线、平面或高维子空间。
+
+## $Ax=b$ Defines an Affine Set
+
+如果：
+
+$$
+Ax=b,\quad Ay=b
+$$
+
+那么：
+
+$$
+A(x+y)=Ax+Ay=2b
+$$
+
+通常不等于 $b$。所以 $Ax=b$ 的解集一般不对加法封闭，不是 linear subspace。
+
+但它仍然是 convex。因为如果：
+
+$$
+z=\alpha x+(1-\alpha)y,\quad 0\le\alpha\le1
+$$
+
+则：
+
+$$
+Az
+=
+A(\alpha x+(1-\alpha)y)
+=
+\alpha Ax+(1-\alpha)Ay
+=
+\alpha b+(1-\alpha)b
+=
+b
+$$
+
+所以 $Ax=b$ 的解集是 affine set，也是 convex set。
+
+直觉：
+
+> $Ax=b$ 是把 $Ax=0$ 的子空间平移到某个非零位置。它通常不过原点，但仍然是“平的”。
+
+# Engineering Meaning of Offset $b$
+
+工程中，$b$ 通常表示：
+
+> baseline, bias, offset, fixed demand, fixed disturbance, or operating-point shift.
+
+也就是说，$b$ 是系统里不随当前 decision variable 改变的固定背景项。
+
+| Scenario | Model | Meaning of $b$ |
+|---|---|---|
+| Sensor calibration | $y=ax+b$ | sensor zero offset / calibration bias |
+| Temperature model | $T=ku+T_{amb}$ | ambient temperature baseline |
+| Power balance | $\sum_i P_{G_i}=P_D$ | fixed demand/load |
+| State-space model | $x_{k+1}=Ax_k+Bu_k+c$ | constant disturbance |
+| Regression model | $y=w^Tx+b$ | intercept / baseline prediction |
+| Optimisation constraint | $Ax=b$ | fixed resource requirement |
+
+## Example: Temperature
+
+$$
+T=0.8u+20
+$$
+
+这里：
+
+- $0.8u$ 是 heater input 对温度的影响；
+- $20$ 是 ambient temperature baseline。
+
+即使 $u=0$，温度也不是 0，而是：
+
+$$
+T=20^\circ C
+$$
+
+所以这是 affine model。
+
+## Example: Power Balance
+
+Economic dispatch 中：
+
+$$
+\sum_i P_{G_i}=P_D
+$$
+
+可以写成：
+
+$$
+\mathbf{1}^TP_G-P_D=0
+$$
+
+如果 $P_D$ 是已知 demand，则这个 equality constraint 是 affine。
+
+物理含义：
+
+> generation 的线性组合必须等于一个固定 demand。
+
+它不是 $Ax=0$，因为系统不是要求 generation sum 为 0，而是要求 generation sum 等于非零负荷。
+
+# Operating Point and Deviation Variables
+
+工程里有时会把 affine model 转成 linear model，这是通过 operating point 实现的。
+
+例如：
+
+$$
+x_{k+1}=Ax_k+Bu_k+c
+$$
+
+如果系统在某个 operating point $(x_0,u_0)$ 附近工作，可以定义 deviation variables：
+
+$$
+\Delta x=x-x_0,\quad \Delta u=u-u_0
+$$
+
+在工作点附近，模型常被写成：
+
+$$
+\Delta x_{k+1}=A\Delta x_k+B\Delta u_k
+$$
+
+这时 offset 已经被 operating point 吸收掉了。
+
+所以你有时看到工程模型是 affine，有时又看到 linear。很多时候不是系统物理变了，而是变量定义变了。
+
+# Link to Convex Optimisation
+
+Convex optimisation 的标准形式可以写成：
+
+$$
+\min_x f_0(x)
+$$
+
+subject to:
+
+$$
+g_i(x)\le0
+$$
+
+$$
+Ax=b
+$$
+
+它是 convex optimisation problem 如果：
+
+- $f_0(x)$ is convex;
+- inequality constraint functions $g_i(x)$ are convex;
+- equality constraints are affine.
+
+为什么 equality constraints 要求 affine？
+
+因为 $Ax=b$ 定义的是 affine set，而 affine set 是 convex。
+
+但 nonlinear equality constraint 例如：
+
+$$
+x_1^2+x_2^2=1
+$$
+
+定义的是圆周，不是 convex set。圆周上两个点的连线通常会穿过圆内部，而圆内部点不满足这个等式。
+
+这也是为什么 AC OPF 很难：AC power-flow equations 是 nonlinear equality constraints，因此通常会破坏 convexity。
+
+# Quick Memory
+
+- Linear map: $f(x)=Ax$.
+- Linear means additivity and homogeneity.
+- Linear map must satisfy $f(0)=0$.
+- Affine map: $f(x)=Ax+b$.
+- Affine means linear transformation plus translation.
+- $Ax=0$ gives a linear subspace.
+- $Ax=b$ gives an affine set.
+- Affine sets are convex.
+- Offset $b$ often means baseline, bias, fixed demand, disturbance, or operating point shift.
+- In convex optimisation, equality constraints must be affine.

@@ -1,0 +1,952 @@
+---
+title: "ENEL445 Power Systems Optimisation"
+subtitle: "Learning Guide: Strategy, Core Concepts, and Exam Formulations"
+format:
+  pdf:
+    pdf-engine: xelatex
+    toc: true
+    toc-depth: 1
+    toc-title: "Contents"
+    number-sections: true
+    colorlinks: true
+lang: zh
+documentclass: ctexart
+---
+
+# Source Materials
+
+本学习指导综合当前目录中的 lecture slides、lecture notes、tutorial/practise questions、2024 和 2025 exam questions，以及 `transcribe.md`。
+
+本章是一个混合章：概念解释占很大比例，但考试会要求把 state estimation 写成 least-squares optimisation problem。2024 和 2025 的 Q4 都说明，本章考试重点不是长篇推导，而是能解释为什么 AC OPF 难、为什么工业中使用 DC OPF/SCOPF 近似、以及如何规范地写出 linear/non-linear least-squares formulation。
+
+最新 exam information 说明：final exam 是 2 小时、2 道 20 分大题，总计 40 分；Q1 来自 Prof. Roy Smith 的材料，Q2 是 Term 2 混合题，可能包含 power systems、game theory、linear matrix inequalities，并且比去年更 mathematical，计算更多、纯解释更少。因此 power systems 复习不能只背概念，还要能快速写出 scaling estimate、DC/AC OPF formulation logic、least-squares matrices。
+
+# Study Strategy
+
+本章应按下面顺序学习。
+
+1. 先掌握三个 power allocation problem 的层级：economic dispatch, DC OPF, AC OPF / SC-OPF。
+2. 再掌握 AC OPF 难在哪里：large-scale, nonlinear, non-convex, many variables and constraints, time limit for real-time dispatch。
+3. 然后掌握工业近似：DC OPF assumptions, loss approximation, AC power-flow feasibility check, contingency screening。
+4. 最后练 state estimation formulation：明确 measurements、states、model $h(x)$ 或 $Hx$、objective。
+
+考试中最容易失分的地方不是公式本身，而是没有定义变量、没有说明 reference angle、或者把 "formulate" 写成 "solve"。题目通常明确说 "do NOT solve"，所以答案应重点写 optimisation problem 的标准形式。
+
+Final exam 的准备重点应更偏计算型模板：遇到 Q2 混合题时，power systems 部分很可能只占一部分分数，所以答案要短、准、公式清楚。
+
+# Must Know
+
+## Economic Dispatch
+
+Economic dispatch 的问题是：在不考虑 network flows, losses, network constraints 的情况下，怎样用最低成本满足总需求。
+
+基本形式是：
+
+$$
+\min_{P_{G_i}} \sum_{i=1}^{m} C_i(P_{G_i})
+$$
+
+subject to:
+
+$$
+P_{G_i}^{\min} \le P_{G_i} \le P_{G_i}^{\max}
+$$
+
+$$
+\sum_{i=1}^{m} P_{G_i} = P_D
+$$
+
+如果 cost/bid 是 linear 或分段报价，通常可以用 merit order：从最便宜的 bid 开始接受，直到满足 demand。老师在转录中明确提醒：能看出简单结构时，不一定要硬套 KKT。
+
+如果 cost 是 quadratic 并且没有触及 generator limits，可以用 Lagrange multiplier。两机例子的条件是：
+
+$$
+\frac{dC_1(P_{G_1})}{dP_{G_1}} = \lambda,\quad
+\frac{dC_2(P_{G_2})}{dP_{G_2}} = \lambda,\quad
+P_{G_1}+P_{G_2}=P_D
+$$
+
+含义：在不考虑 losses 时，所有正在运行的 generator 的 marginal cost 在 optimum 相等。
+
+## Penalty Factor
+
+Economic dispatch 本身不看 generator 和 load 的位置。为了近似 transmission losses，可以把 loss term 放进 power balance：
+
+$$
+P_D + P_L(P_G) - \sum_{i=1}^{m} P_{G_i}=0
+$$
+
+一阶条件给出：
+
+$$
+L_i IC_i(P_{G_i}) = \lambda
+$$
+
+这里课件中的 $IC_i(P_{G_i})$ 指 incremental cost，也就是：
+
+$$
+IC_i(P_{G_i})=\frac{dC_i(P_{G_i})}{dP_{G_i}}
+$$
+
+其中：
+
+$$
+L_i =
+\frac{1}{1-\frac{\partial P_L(P_G)}{\partial P_{G_i}}}
+$$
+
+如果增加某台 generator 的 output 会增加 losses，则 $\frac{\partial P_L}{\partial P_{G_i}}>0$，因此 $L_i>1$，该 generator 看起来更贵。反之，如果它靠近 load，增加 output 可能降低 losses，则 $L_i<1$，它看起来更便宜。
+
+实际计算中常用 finite difference 近似：
+
+$$
+\frac{\partial P_L(P_G)}{\partial P_{G_i}}
+\approx
+\frac{\Delta P_L(P_G)}{\Delta P_{G_i}}
+$$
+
+考试解释模板：
+
+> A penalty factor modifies the apparent incremental cost of a generator to account for how changing that generator output changes transmission losses. It is a location-dependent correction to economic dispatch.
+
+## Optimal Power Flow
+
+OPF 的目标仍然是 minimum generation cost，但它加入 network physics 和 equipment limits。它比 economic dispatch 多了 power-flow equations 和 network constraints。
+
+核心对比：
+
+| Problem | What it considers | Main strength | Main weakness |
+|---|---|---|---|
+| Economic dispatch | Total generation-demand balance and generator costs | Very cheap to solve | Ignores network flows, losses, and line constraints |
+| DC OPF | Linearised power-flow constraints and line limits | Fast enough for real-time dispatch | Ignores reactive power, voltage magnitudes, and exact losses |
+| AC OPF | Full AC power-flow equations, voltage, real/reactive power, line limits | More physically accurate | Large, nonlinear, non-convex, too slow for frequent real-time use |
+| SC-OPF | OPF plus contingency constraints | Security-aware dispatch | Much larger because constraints are replicated for contingencies |
+
+OPF 中的 constraints 包括：
+
+- real and reactive power balance at each bus;
+- AC power-flow equations;
+- voltage magnitude limits;
+- generator active/reactive limits;
+- line or apparent power limits.
+
+老师强调：不需要完全理解 ENEL382/480 的所有 power-flow equations，但必须知道 OPF solution must be consistent with the physics of the network。
+
+## Background: Power Flow Equations
+
+这一节是背景知识，不是本课程要求你从头推导的内容。它的作用是帮助理解为什么 AC OPF 会变成 nonlinear 和 non-convex，也解释为什么 DC OPF 的近似可以把问题大幅简化。
+
+### What Power Flow Solves
+
+Power flow, or load flow, answers this question:
+
+> Given a power network, known loads, generator set-points, and network parameters, what are the bus voltages, voltage angles, real/reactive power flows, and line loadings?
+
+在一个 AC power system 里，每个 bus 通常有四个主要量：
+
+| Quantity | Meaning |
+|---|---|
+| $V_i$ | voltage magnitude at bus $i$ |
+| $\theta_i$ | voltage angle at bus $i$ |
+| $P_i$ | active/real power injection at bus $i$ |
+| $Q_i$ | reactive power injection at bus $i$ |
+
+Power flow 的核心是：每个 bus 的 injected power 必须和通过线路流出去/流进来的功率一致。也就是 network physics 不能被 optimisation 随便违反。
+
+### Admittance and Bus Coupling
+
+线路参数常用 admittance 表示：
+
+$$
+Y_{ij}=G_{ij}+jB_{ij}
+$$
+
+其中：
+
+- $G_{ij}$ is conductance, linked to resistance;
+- $B_{ij}$ is susceptance, linked to reactance;
+- $j$ is the imaginary unit.
+
+直观上，$Y_{ij}$ 描述 bus $i$ 和 bus $j$ 之间电气连接有多强。Power-flow equations 之所以复杂，是因为一个 bus 的电压和相角会影响相邻线路上的 power flow。
+
+### AC Power Flow Equations
+
+常见的 bus injection 形式是：
+
+$$
+P_i =
+V_i\sum_{j=1}^{n}V_j
+\left(
+G_{ij}\cos(\theta_i-\theta_j)
++
+B_{ij}\sin(\theta_i-\theta_j)
+\right)
+$$
+
+$$
+Q_i =
+V_i\sum_{j=1}^{n}V_j
+\left(
+G_{ij}\sin(\theta_i-\theta_j)
+-
+B_{ij}\cos(\theta_i-\theta_j)
+\right)
+$$
+
+不同教材可能符号正负略有差异，因为 $Y_{ij}$、power injection direction、line-flow convention 的定义不同。对本课程最重要的是识别结构：
+
+- equations include products such as $V_iV_j$;
+- equations include $\sin(\theta_i-\theta_j)$ and $\cos(\theta_i-\theta_j)$;
+- therefore they are nonlinear;
+- because they appear as equality constraints in OPF, they also make the feasible set non-convex.
+
+Lecture 和 exam 中更常使用 line-flow style 的简化形式，例如：
+
+$$
+P_{ij}=V_iV_jB_{ij}\sin(\theta_i-\theta_j)
+$$
+
+$$
+Q_{ij}=V_i(V_i-V_j\cos(\theta_i-\theta_j))B_{ij}
+$$
+
+这些就是 state estimation 题里给出的 measurement model。考试通常不要求你证明它们，只要求你能把它们放进 $h(x)$，然后写出 least-squares problem。
+
+### Bus Types in Classical Power Flow
+
+ENEL382/480 中常见 bus types：
+
+| Bus type | Known quantities | Unknown quantities |
+|---|---|---|
+| Slack / reference bus | $V$, $\theta$ | $P$, $Q$ |
+| PV / generator bus | $P$, $V$ | $Q$, $\theta$ |
+| PQ / load bus | $P$, $Q$ | $V$, $\theta$ |
+
+Slack bus 的作用是提供 angle reference，并吸收系统功率不平衡，包括 losses。因为 voltage angles 只有相对差值有物理意义，所以必须固定一个 reference angle，例如 $\theta_1=0$。
+
+### Why OPF Is Harder Than Power Flow
+
+Power flow 是 analysis problem：给定 generator set-points 和 load，求网络状态。
+
+OPF 是 optimisation problem：不仅要求网络状态满足 power-flow equations，还要选择 generator outputs 等 design variables，使成本最小。
+
+所以 OPF 同时包含：
+
+- objective function: usually generation cost;
+- design variables: generator outputs, bus voltages, angles, line flows;
+- equality constraints: AC power-flow equations and power balance;
+- inequality constraints: generator limits, voltage limits, line limits.
+
+这就是为什么 OPF 比普通 power flow 难很多。
+
+### How DC Power Flow Comes From AC Power Flow
+
+DC power flow 不是 DC 电网，而是对 AC equations 的线性近似。核心假设是：
+
+1. ignore reactive power;
+2. set all voltage magnitudes to 1 p.u.;
+3. assume angle differences are small;
+4. ignore resistance, so the network is approximately lossless.
+
+用 small-angle approximation：
+
+$$
+\sin(\theta_i-\theta_j)\approx \theta_i-\theta_j
+$$
+
+$$
+\cos(\theta_i-\theta_j)\approx 1
+$$
+
+于是 active power flow 可以简化为：
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j)
+$$
+
+这就是本章 DC OPF 和 state estimation 线性题的核心公式。它把 nonlinear trigonometric equation 变成 linear equation，所以 optimisation problem 会快很多。
+
+## Why AC OPF Is Difficult
+
+考试高频问法：Why is AC OPF computationally difficult for a large power system?
+
+答题要点：
+
+1. Large number of variables: generator outputs, voltage magnitudes, voltage angles, line flows, reactive powers.
+2. Large number of constraints: bus power balance, power-flow equations, generator limits, voltage limits, line limits.
+3. Nonlinear equations: AC power-flow equations contain $\sin(\theta_i-\theta_j)$ and $\cos(\theta_i-\theta_j)$.
+4. Non-convexity: nonlinear trigonometric equality constraints can create multiple local solutions and make global guarantees difficult.
+5. Real-time requirement: dispatch may need to be updated every few minutes, so a half-hour AC OPF solve is not acceptable for normal real-time dispatch.
+6. SC-OPF makes the problem much worse because constraints must be checked or included under many contingencies.
+
+Mitigation methods:
+
+- use DC OPF as a linear surrogate;
+- use interior-point methods for large AC OPF when full AC OPF is required;
+- warm-start from a physically reasonable point, such as voltages near 1 p.u.;
+- use voltage estimates as constants in improved DC OPF;
+- approximate losses using current estimates and piecewise linear $I^2R$ losses;
+- check a DC OPF solution using a standard AC power flow;
+- screen a subset of contingencies instead of solving full SC-OPF.
+
+## Background: Convex Optimisation and KKT Conditions
+
+这一节是为了补回 Term 1 背景。Power systems 这一章反复说 AC OPF is non-convex，所以需要知道 convex optimisation 的精确定义，以及 KKT 在凸问题和非凸问题里的意义不同。
+
+### Convex Set
+
+A set $S$ is convex if, for any two points $x_1,x_2\in S$, the line segment between them is also inside $S$:
+
+$$
+\alpha x_1+(1-\alpha)x_2\in S,\quad 0\le \alpha\le 1
+$$
+
+直观理解：集合里任意两点之间画直线，不会跑出集合。
+
+### Convex Function
+
+A function $f(x)$ is convex if:
+
+$$
+f(\alpha x_1+(1-\alpha)x_2)
+\le
+\alpha f(x_1)+(1-\alpha)f(x_2),
+\quad 0\le \alpha\le 1
+$$
+
+直观理解：函数图像在 chord line 下面，没有局部坑洞。对于 differentiable convex function，一阶条件也可以写成：
+
+$$
+f(y)\ge f(x)+\nabla f(x)^T(y-x)
+$$
+
+意思是任一点的 tangent plane 都在函数图像下方。
+
+### Convex Optimisation Problem
+
+标准形式：
+
+$$
+\min_x f_0(x)
+$$
+
+subject to:
+
+$$
+g_i(x)\le 0,\quad i=1,\dots,m
+$$
+
+$$
+Ax=b
+$$
+
+这是 convex optimisation problem 如果：
+
+- objective $f_0(x)$ is convex;
+- inequality constraint functions $g_i(x)$ are convex;
+- equality constraints are affine, i.e. linear plus constant, such as $Ax=b$.
+
+注意：在凸优化中，equality constraints 必须是 affine。一般 nonlinear equality constraint 通常会破坏 convexity。这就是为什么 AC power-flow equations 作为 equality constraints 时，会让 AC OPF 变成 non-convex。
+
+### KKT Conditions
+
+对于问题：
+
+$$
+\min_x f_0(x)
+$$
+
+subject to:
+
+$$
+g_i(x)\le 0,\quad h_j(x)=0
+$$
+
+Lagrangian:
+
+$$
+\mathcal{L}(x,\lambda,\nu)
+=
+f_0(x)+\sum_i\lambda_i g_i(x)+\sum_j\nu_j h_j(x)
+$$
+
+KKT conditions are:
+
+1. Stationarity:
+
+$$
+\nabla_x \mathcal{L}(x,\lambda,\nu)=0
+$$
+
+2. Primal feasibility:
+
+$$
+g_i(x)\le 0,\quad h_j(x)=0
+$$
+
+3. Dual feasibility:
+
+$$
+\lambda_i\ge 0
+$$
+
+4. Complementary slackness:
+
+$$
+\lambda_i g_i(x)=0
+$$
+
+Complementary slackness 的意思是：如果 inequality constraint 没有 active，则对应 multiplier 为 0；如果 multiplier 非零，则该 constraint 必须刚好 active。
+
+### Why Convexity Matters
+
+For a convex optimisation problem, under regularity conditions such as Slater's condition, KKT conditions are necessary and sufficient for global optimality.
+
+This means:
+
+> If the problem is convex and a point satisfies KKT, then it is a global optimum.
+
+For a non-convex problem, KKT conditions are usually only necessary conditions for a local optimum, not sufficient for global optimum.
+
+This is the link to AC OPF:
+
+- AC OPF has nonlinear trigonometric equality constraints;
+- these make the feasible set non-convex;
+- an interior-point solver may find a good local solution, but global optimality is harder to guarantee;
+- this is one reason AC OPF is computationally difficult.
+
+DC OPF, by contrast, uses linear approximations. If the cost is linear or convex quadratic and constraints are linear, DC OPF becomes a linear program or convex quadratic program. Then KKT/duality theory behaves much more cleanly.
+
+## Algorithm Choice for AC OPF
+
+For large AC OPF, the preferred practical algorithm is an interior-point method.
+
+Why:
+
+- it handles many inequality constraints naturally;
+- it scales better than SQP for very large systems;
+- it works with smooth nonlinear constrained problems;
+- it can exploit sparse structure in power networks;
+- it can be warm-started near likely feasible operating points.
+
+Simple answer template:
+
+> I would choose an interior-point method. AC OPF is a large, smooth, nonlinear constrained optimisation problem with many inequality constraints such as voltage and line limits. Interior-point methods scale well for large sparse constrained problems and are widely used in practical AC OPF solvers. SQP may be reasonable for small systems, but does not scale as well. Population methods such as genetic algorithms or particle swarm are inappropriate because the number of variables and constraints is too large.
+
+If the question asks for main concepts, write the barrier idea:
+
+$$
+\min_x f(x)
+$$
+
+subject to:
+
+$$
+g_i(x) \le 0,\quad h_j(x)=0
+$$
+
+Interior-point methods replace inequalities with a barrier term:
+
+$$
+\min_x f(x) - \mu \sum_i \log(-g_i(x))
+$$
+
+subject to:
+
+$$
+h_j(x)=0
+$$
+
+As $\mu$ decreases, the solution approaches the constrained optimum while staying inside the feasible region.
+
+## OPF Scaling Estimate
+
+2024 试题出现过 computational expense estimate。教授最新说明 final exam 更偏 mathematical，所以这个模板应会用。
+
+如果题目给出 solver scaling：
+
+$$
+O((n+n_g+n_h)^3)
+$$
+
+其中：
+
+- $n$ is the number of design variables;
+- $n_g$ is the number of inequality constraints;
+- $n_h$ is the number of equality constraints.
+
+计算步骤：
+
+1. 先估计 DC OPF 的 $N_{DC}=n+n_g+n_h$。
+2. 再估计 AC OPF 的 $N_{AC}=n+n_g+n_h$。
+3. 用 cubic scaling 比较：
+
+$$
+\frac{t_{AC,linear}}{t_{DC}}
+\approx
+\left(\frac{N_{AC}}{N_{DC}}\right)^3
+$$
+
+4. 如果题目说 nonlinearity gives a five-fold slowdown：
+
+$$
+t_{AC}
+\approx
+5t_{DC}
+\left(\frac{N_{AC}}{N_{DC}}\right)^3
+$$
+
+Example answer structure:
+
+> Estimate the effective problem size for DC OPF and AC OPF, compare them using the given cubic scaling law, then multiply by the nonlinearity factor. The precise count may be approximate, but the important point is that AC OPF grows much faster because it includes voltage magnitudes, reactive power, nonlinear power-flow equations, and more constraints.
+
+## DC OPF
+
+DC OPF is not a DC network model. It is a DC approximation of the AC power-flow equations.
+
+Main assumptions:
+
+1. Ignore reactive power.
+2. Assume voltage magnitudes are 1 p.u.
+3. Assume angle differences are small:
+
+$$
+\sin(\theta_i-\theta_j) \approx \theta_i-\theta_j,\quad
+\cos(\theta_i-\theta_j)\approx 1
+$$
+
+4. Assume line resistance is negligible, so the network is lossless.
+
+This gives a linear active-power flow approximation:
+
+$$
+P_{ij} = B_{ij}(\theta_i-\theta_j)
+$$
+
+DC OPF is useful because it stays linear and fast. It is used in real-time dispatch workflows, including Transpower-style dispatch every few minutes.
+
+Limitations:
+
+- ignores reactive power;
+- ignores voltage magnitude variation unless voltage estimates are inserted as constants;
+- ignores losses unless approximated separately;
+- may produce a solution that is not AC-feasible.
+
+Common industrial workflow:
+
+1. Solve DC OPF.
+2. Approximate losses, often by estimating currents and using piecewise linear $I^2R$ losses.
+3. Run a standard AC power flow to check feasibility.
+4. If infeasible, add heuristic/security constraints and re-solve.
+
+## Security-Constrained OPF
+
+SC-OPF means the dispatch must remain within operational limits not only in the base case, but also under plausible contingencies, such as line or generator outages.
+
+Difference from regular AC OPF:
+
+- regular AC OPF checks only the normal operating case;
+- SC-OPF also imposes constraints for contingency cases.
+
+Why it is hard:
+
+- each contingency can require another set of power-flow, voltage, and line constraints;
+- full SC-OPF can be orders of magnitude larger than AC OPF;
+- practical systems have many possible contingencies;
+- the result must still be available fast enough for operation.
+
+Industry practice:
+
+> Solve DC OPF, check the solution against a selected subset of contingencies, and if the solution is not SCOPF-feasible, add heuristic constraints and re-solve. This is not the same as solving a full SC-OPF.
+
+Lecture B 进一步强调，industry 中更常见的是 security-constrained economic dispatch 或 security-constrained DC OPF，而不是 full AC OPF。原因是 full AC OPF 已经太慢，full SC-OPF 还要为每个 contingency 加一整套网络约束。
+
+常见 contingency examples:
+
+- HVDC link outage;
+- large generator outage;
+- important transmission line outage;
+- constraints near major load centres such as Auckland.
+
+`N-1` security 的意思是：
+
+> the system should remain within operational limits after any one credible component outage.
+
+这不是追求最低成本，而是在 cost 和 safety 之间取平衡。Lecture B 的直觉类比是：不要站在悬崖边缘追求最优视野，而要离边缘留出 margin。Power system 是 critical infrastructure，所以 slight sub-optimality is acceptable if it avoids blackout risk.
+
+## State Estimation
+
+State estimation estimates the system states from noisy and incomplete measurements. In power systems, states usually include voltage magnitudes and voltage angles. In a DC approximation, states may be only voltage angles.
+
+Why not just run a power flow?
+
+- may not have two exact measurements per bus;
+- measurements are noisy;
+- power flow cannot easily combine arbitrary line-flow measurements;
+- state estimation can use redundancy and measurement accuracy.
+
+Standard form:
+
+$$
+z = h(x) + e
+$$
+
+where:
+
+- $z$ is the measurement vector;
+- $x$ is the state vector;
+- $h(x)$ maps states to predicted measurements;
+- $e$ is measurement error.
+
+Weighted least squares:
+
+$$
+\min_x (z-h(x))^T R^{-1}(z-h(x))
+$$
+
+If all measurements have the same standard deviation, this reduces to ordinary least squares:
+
+$$
+\min_x \|z-h(x)\|_2^2
+$$
+
+If the model is linear, $h(x)=Hx$:
+
+$$
+\min_x \|z-Hx\|_2^2
+$$
+
+with solution:
+
+$$
+\hat{x}=(H^T H)^{-1}H^T z
+$$
+
+or, with weights:
+
+$$
+\hat{x}=(H^T R^{-1}H)^{-1}H^T R^{-1}z
+$$
+
+Important: if only angle differences are measured, one angle reference is needed. For example, set $\theta_1=0$ or $\theta_3=0$.
+
+## Lecture B State Estimation Details
+
+Lecture B gives the practical construction logic for the least-squares matrices. The key idea is:
+
+> $H$ is the system model: given the state variables, what measurements would the model predict?
+
+For DC state estimation, the state variables are voltage angles, after choosing one reference angle. Measurements are usually line power flows.
+
+### Reference Angle
+
+Voltage angle is only meaningful relative to another angle. If all angles are shifted by the same constant, angle differences do not change:
+
+$$
+(\theta_i+c)-(\theta_j+c)=\theta_i-\theta_j
+$$
+
+Therefore, without a reference angle, the optimiser sees infinitely many equivalent solutions. Set one bus angle to zero, for example:
+
+$$
+\theta_1=0
+$$
+
+or:
+
+$$
+\theta_3=0
+$$
+
+The choice does not matter, but the matrix $H$ must be consistent with that choice.
+
+### Weighted Least Squares and $R$
+
+If measurement $i$ has standard deviation $\sigma_i$, the weighting matrix is:
+
+$$
+R=
+\begin{bmatrix}
+\sigma_1^2 & 0 & \cdots\\
+0 & \sigma_2^2 & \cdots\\
+\vdots & \vdots & \ddots
+\end{bmatrix}
+$$
+
+Then:
+
+$$
+\min_x (z-Hx)^TR^{-1}(z-Hx)
+$$
+
+If all meters have the same standard deviation, $R$ is just a constant multiple of the identity matrix, so the weighting does not change the least-squares minimiser.
+
+Lecture B example: if meter accuracy is roughly $\pm 3$ MW, this can be treated as about three standard deviations, so:
+
+$$
+\sigma\approx 1\text{ MW}
+$$
+
+In per unit on a 100 MW base:
+
+$$
+\sigma\approx0.01\text{ p.u.}
+$$
+
+so:
+
+$$
+\sigma^2=10^{-4}
+$$
+
+### Determined, Over-Determined, and Under-Determined
+
+| Case | Meaning | Power-system state estimation handling |
+|---|---|---|
+| Under-determined | fewer independent measurements than unknown states | not normally solved directly |
+| Completely determined | just enough independent measurements | can solve exactly if measurements are consistent |
+| Over-determined | more measurements than states | usual case; use least squares |
+
+Power-system state estimation normally prefers over-determined problems because measurements are noisy and redundancy helps.
+
+If the system is under-determined, operators add pseudo-measurements to make it completely determined or over-determined. These pseudo-measurements may come from historical data, previous measurements, or operator estimates. Because confidence is low, assign a large standard deviation, so the pseudo-measurements have low weight.
+
+### Bad Data
+
+Least squares can be badly affected by a single bad measurement. For example, if a decimal point is wrong and a flow is entered as 62 p.u. instead of 0.62 p.u., the least-squares estimate can become poor. This is why bad data detection and removal are important advanced topics.
+
+### PMUs and Dynamic Behaviour
+
+Phasor Measurement Units (PMUs) provide synchronized voltage/current phasor measurements and can improve state estimation accuracy. However, state estimation is also becoming harder because modern systems have more inverter-based resources, solar/wind variability, and dynamic behaviour. Basic state estimation in this lecture is steady-state and does not explicitly model time evolution.
+
+### How State Estimation Fits with OPF
+
+The state estimator gives the system operator an estimate of current network states. These estimates can then guide OPF. For example, estimated voltage magnitudes can be inserted as constants in an improved DC OPF formulation. Since they are treated as constants, the OPF can remain linear.
+
+# Exam Templates
+
+## Linear State Estimation Template
+
+Typical 2025-style question:
+
+Measurements:
+
+$$
+z =
+\begin{bmatrix}
+P_{12}^{meas}\\
+P_{13}^{meas}\\
+P_{32}^{meas}
+\end{bmatrix}
+$$
+
+Model:
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j)
+$$
+
+Choose a reference angle, for example $\theta_1=0$, and define:
+
+$$
+x =
+\begin{bmatrix}
+\theta_2\\
+\theta_3
+\end{bmatrix}
+$$
+
+Then:
+
+$$
+H =
+\begin{bmatrix}
+-B_{12} & 0\\
+0 & -B_{13}\\
+-B_{32} & B_{32}
+\end{bmatrix}
+$$
+
+because:
+
+$$
+P_{12}=B_{12}(0-\theta_2)
+$$
+
+$$
+P_{13}=B_{13}(0-\theta_3)
+$$
+
+$$
+P_{32}=B_{32}(\theta_3-\theta_2)
+$$
+
+The least-squares problem is:
+
+$$
+\min_x \|z-Hx\|_2^2
+$$
+
+If all meters have the same standard deviation, no weighting is needed. If meter variances differ, use:
+
+$$
+\min_x (z-Hx)^T R^{-1}(z-Hx)
+$$
+
+## Nonlinear State Estimation Template
+
+Typical 2024/2025-style question:
+
+Define the state vector, for example:
+
+$$
+x =
+\begin{bmatrix}
+V_1 & V_2 & V_3 & \theta_1 & \theta_2 & \theta_3
+\end{bmatrix}^T
+$$
+
+If no synchronized angle measurements are given, fix one reference angle, such as $\theta_1=0$. If synchronized angle measurements are given, include those measurements in $z$ and $h(x)$.
+
+For line-flow measurements, use:
+
+$$
+P_{ij}(x)=V_iV_jB_{ij}\sin(\theta_i-\theta_j)
+$$
+
+$$
+Q_{ij}(x)=V_i(V_i-V_j\cos(\theta_i-\theta_j))B_{ij}
+$$
+
+Example measurement vector:
+
+$$
+z =
+\begin{bmatrix}
+P_{12}^{meas}\\
+Q_{12}^{meas}\\
+P_{13}^{meas}\\
+Q_{13}^{meas}\\
+P_{32}^{meas}\\
+Q_{32}^{meas}\\
+V_1^{meas}\\
+V_2^{meas}
+\end{bmatrix}
+$$
+
+Predicted measurement vector:
+
+$$
+h(x)=
+\begin{bmatrix}
+P_{12}(x)\\
+Q_{12}(x)\\
+P_{13}(x)\\
+Q_{13}(x)\\
+P_{32}(x)\\
+Q_{32}(x)\\
+V_1\\
+V_2
+\end{bmatrix}
+$$
+
+Then write:
+
+$$
+\min_x \|z-h(x)\|_2^2
+$$
+
+If an unknown parameter such as $B_{32}$ is to be estimated, include it in the decision vector:
+
+$$
+x =
+\begin{bmatrix}
+V_1 & V_2 & V_3 & \theta_1 & \theta_2 & \theta_3 & B_{32}
+\end{bmatrix}^T
+$$
+
+and use the known values $B_{12}$ and $B_{13}$ as constants.
+
+# Should Know
+
+## Locational Marginal Pricing
+
+In OPF, Lagrange multipliers can be interpreted as prices. In a networked power system, nodal prices or locational marginal prices reflect generation costs, losses, and constraints at a location.
+
+Short answer:
+
+> Locational marginal prices are derived from the OPF Lagrange multipliers. They represent the marginal cost of serving one more unit of demand at a node, including the effect of losses and network/security constraints.
+
+## Uniform Pricing vs Pay-as-Bid
+
+Uniform pricing or pay-as-cleared means all accepted generators are paid the marginal market price. This is the New Zealand-style idea discussed in the lecture.
+
+Pay-as-bid means each accepted generator is paid its own bid price.
+
+The lecture explanation: pay-as-bid may look cheaper, but generators then try to guess the marginal price rather than bid true cost, which can distort dispatch.
+
+| Aspect | Uniform-price / pay-as-cleared | Pay-as-bid |
+|---|---|---|
+| Used in lecture examples | NZ and most power markets | UK-style example mentioned in lecture |
+| Payment rule | All accepted generators receive the same market-clearing price | Each accepted generator receives its own bid price |
+| Price-setting idea | The marginal accepted generator sets the market price | Each generator's bid determines its own payment |
+| Incentive | Generators can bid closer to cost because the clearing price is set by the market | Generators try to guess the clearing price, not necessarily reveal true cost |
+| Low-cost generator outcome | Low-cost generators benefit when expensive generators enter, because the market price rises | Low-cost generators are paid their bid, so bidding too low reduces their revenue |
+| Main risk | High prices when expensive marginal generation is needed | Strategic bidding can distort dispatch and may cause inefficient outcomes |
+| Exam sentence | Uniform pricing pays all accepted generators the marginal market price, so cheap generators earn more when the marginal generator is expensive. | Pay-as-bid seems cheaper, but bidders may inflate bids to estimate the market price, reducing efficiency. |
+
+Short answer template:
+
+> In a uniform-price market, all accepted generators are paid the market-clearing price, usually set by the marginal generator. This is why low-cost generators, such as hydro, benefit when expensive gas generation is needed: their own cost is low, but they receive the higher market price. In a pay-as-bid market, each generator is paid its own bid. This may look cheaper, but it encourages generators to guess the clearing price rather than bid true marginal cost, which can reduce efficiency.
+
+## Pseudo-Measurements
+
+State estimation should not normally solve underdetermined problems. If there are not enough measurements, pseudo-measurements can be added using historical data, previous measurements, or operator estimates. Because they are uncertain, they should have a large standard deviation and therefore low weight.
+
+# Recognise Only
+
+These are useful to recognise but unlikely to need full derivation in this chapter:
+
+- full AC power-flow equation derivation;
+- exact calculation of penalty factors from analytic derivatives;
+- detailed sparse linear algebra inside an interior-point solver;
+- bad data detection methods;
+- neural networks for OPF prediction;
+- PMU-based advanced state estimation.
+
+# Common Mistakes
+
+1. Writing `DC OPF` as if it means a DC electrical network. In this course it means a linear DC approximation of AC power flow.
+2. Forgetting the reference angle in linear state estimation.
+3. Solving when the question asks only to formulate.
+4. Failing to define $z$, $x$, $H$, or $h(x)$.
+5. Saying AC OPF is hard only because it has many buses. The stronger answer is: large plus nonlinear plus non-convex plus many constraints plus real-time limits.
+6. Saying SC-OPF is just "more secure" without explaining contingency constraints.
+7. Treating a post-DC-OPF AC power-flow check as equivalent to solving AC OPF.
+8. Ignoring units and context: $P$ is active/real power, $Q$ is reactive power, $V$ is voltage magnitude, $\theta$ is voltage angle.
+
+# Self Check
+
+Before the exam, you should be able to answer these without notes.
+
+1. Explain the difference between economic dispatch, DC OPF, AC OPF, and SC-OPF.
+2. Explain why AC OPF is computationally difficult.
+3. Justify interior-point methods for large AC OPF.
+4. List the four DC power-flow assumptions.
+5. Explain how industry uses DC OPF, AC power-flow checks, and contingency screening.
+6. Write $P_{ij}=B_{ij}(\theta_i-\theta_j)$ into a least-squares state-estimation matrix.
+7. Write a nonlinear least-squares formulation using $P_{ij}(x)$ and $Q_{ij}(x)$.
+8. Explain why pseudo-measurements are given large standard deviations.
+
+# Minimum Memory List
+
+- `Economic dispatch`: cheapest generation subject to generator limits and total demand.
+- `Penalty factor`: changes apparent marginal cost to account for losses.
+- `OPF`: economic dispatch plus network physics and limits.
+- `AC OPF`: accurate but large, nonlinear, non-convex.
+- `DC OPF`: linear approximation used for speed.
+- `SC-OPF`: OPF that remains feasible under contingencies.
+- `Interior point`: best practical large-scale AC OPF algorithm.
+- `State estimation`: least-squares estimate of voltage states from noisy measurements.
+- `Linear state estimation`: $\min_x \|z-Hx\|^2$.
+- `Nonlinear state estimation`: $\min_x \|z-h(x)\|^2$.

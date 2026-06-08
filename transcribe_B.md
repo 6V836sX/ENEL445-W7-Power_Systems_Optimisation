@@ -2,7 +2,7 @@
  Welcome back.
  Right, so just to mention what I sent in the class email last night.
  So tomorrow, this time over at Beatrice Tinsley, we'll be doing one lecture on game theory,
- because I should be able to finish or nearly finish the calculus and stuff today.
+ because I should be able to finish or nearly finish the power system optimisation and stuff today.
  That's usually a lot of fun.
  I'll bring a couple of boxes of chocolates to see whether you can win the game.
  I enjoyed it last year, so hopefully you do, too.
@@ -24,7 +24,7 @@
  But economic dispatch has no network constraints.
  So in the simplest case, that is simply selecting the cheapest generators to run.
  So if you were doing this, for example, for a microgrid, where there's no network constraints,
- because everything's run bus, for example, then you would be doing an economic dispatch.
+ because everything's one bus, for example, then you would be doing an economic dispatch.
  Now, of course, real power systems aren't like that.
  We have to transport power over distance.
  There's going to be a cost incurred by that.
@@ -37,7 +37,7 @@
  And if it's less than one, we incentivize the use of that generator.
  And, well, the calculation of Li is based on how the losses...
  So these are the power losses in the system.
- Change as PGI changes.
+ Change as P_Gi changes.
  So this guides our solution to a solution which has lower line losses, which kind of makes sense.
  If you're running your power system well, you don't want to have too many losses.
  You want to supply loads with nearby generators.
@@ -151,7 +151,7 @@
  Okay.
  Right, so this is one of the main uses of optimization.
  It's used to optimize dispatch, dispatch the market, and what happens basically is those solutions are sent to the generators.
- And for those who did 382, then the generators can adjust that set point based on group, based on the frequency.
+ And for those who did (couse)382, then the generators can adjust that set point based on group, based on the frequency.
  So the automatic generation control would try to track that set point, but it might differ in practice slightly.
  What happens after that, actually, is that Transpower will integrate the power over the five-minute block and use that for revenue distribution.
  So even if you operate through for whatever it does, it is counted in revenue distribution.
@@ -618,13 +618,92 @@
  there are multiple ones in parallel, like a Manifory and so forth.
  So you don't have just one generator,
  but you actually have a whole lot of them in parallel.
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
- For more information, please visit www.enel.edu.au
+ So it's how much of the base power they have to contribute.
+ So if there's eight of them and they're all the same,
+ you'll be doing an eighth there.
+
+ Now, the solution that's actually sent to the generator
+ is the security-constrained DC optimal power flow.
+ That's the one that goes to the generator
+ and is the set point for, like, the droopers we talked about in 382,
+ with possible changes for the participation factor,
+ because you'll be given a set point for the whole power plant,
+ this whole station like Manipuri or Benmore,
+ and each generator takes a certain percentage of that.
+
+ Okay, so that's my time.
+ Some resources if you want to learn more about these kind of things.
+ If you're interested to talk further, just come to me.
+ In terms of exam preparation, I would say just do the past exam papers.
+ I will probably schedule some sort of tutorial closer to the time
+ where we will just go through.
+ This part is not very hard, I would say,
+ but it's a bit challenging if you haven't done power systems before
+ because some of the intuition might not be there.
+ So in that case, do all the problems and come and see me
+ if you have problems because I'm more than happy to talk through some of these things.
+ Okay, so I hope to see you tomorrow.
+ Most fun lecture routes, of course, in my view,
+ so please do come.
+ Thank you.
+
+ That's right, exactly, that's correct.
+ 5 times theta 1 minus 5 times theta 2 there.
+ That's the solution, so we got that.
+ If you don't mind me just scrolling.
+ You get it simply by plugging H and R and your measurements into here,
+ and that will give you those thetas directly.
+ So Z is here, R is there, and H is the first part of that.
+ You use that equation here, yep, this one here.
+ That's right, yep.
+
+ You know that because you've got three measurements
+ and only two design variables,
+ so you're in the first case here.
+ That's right.
+ So all you need to do is calculate H, calculate R,
+ and you're usually given Z measured straight away from the data here.
+ So once you've calculated those three things, you're good to go.
+
+ If you choose this one as zero, is it random?
+ Free choice.
+ Yeah, so it doesn't matter at all which one you choose.
+
+ So you calculate R and Z is given.
+ Z is given.
+ You just calculate.
+ So you only need H and R, that's all.
+ R is not given.
+ From sigma being 0.01,
+ because as I mentioned, 0.01, that's sigma, yep.
+ That's right, yep.
+ So as I mentioned, accuracy of three megawatts,
+ that's like 99%, so it's about, yeah.
+ Typically I'd probably give you the sigma anyway,
+ so you just need to remember to.
+ It's given, this is given.
+ So everything's given, you just need to calculate H, R
+ and then work out the formula.
+
+ So the way this works here is that
+ that metre accuracy corresponds to sigma being 0.01.
+ The definition of R is all the sigmas squared.
+ So if you have 0.01 squared,
+ you get 10 to the minus 4.
+ Does that make sense?
+ Yes, thank you.
+ The sigma will be given there.
+ Yeah, I'll typically give you the sigma,
+ because I can't remember all the standard deviations offhand and stuff.
+
+ I have some questions about your tutorial discussion question thingies.
+ Oh, yes.
+ But I'm not sure.
+ You said you have time, like, 1 to 2pm,
+ but there's also 382 students.
+ Yes.
+ So I was wondering if there's...
+ Yes, yes.
+ Let me just make another time for you,
+ so that you don't clash with...
+ Yeah, I feel like I've got a couple.

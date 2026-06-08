@@ -23,20 +23,21 @@ documentclass: ctexart
 
 # Study Strategy
 
-本章应按下面顺序学习。
+本 guide 现在按课堂推进顺序阅读，而不是按 Must Know / Should Know / Recognise Only 分组。重要程度直接写在标题后面：`(***)` 最重要，`(**)` 中等重要，`(*)` 只需要认识或能简单解释。
 
-1. 先掌握三个 power allocation problem 的层级：economic dispatch, DC OPF, AC OPF / SC-OPF。
-2. 再掌握 AC OPF 难在哪里：large-scale, nonlinear, non-convex, many variables and constraints, time limit for real-time dispatch。
-3. 然后掌握工业近似：DC OPF assumptions, loss approximation, AC power-flow feasibility check, contingency screening。
-4. 最后练 state estimation formulation：明确 measurements、states、model $h(x)$ 或 $Hx$、objective。
+推荐顺序：
+
+1. 先理解 economic dispatch：如果没有网络约束，怎样按成本分配 generation。
+2. 然后看 losses 和 penalty factors：为什么 generator 的位置会影响 apparent marginal cost。
+3. 接着进入 OPF：把 dispatch 和 power-flow physics 合在一起。
+4. 再理解为什么 AC OPF 难，以及为什么要用 DC OPF、interior-point methods 和 contingency screening。
+5. 最后看 state estimation：先估计当前网络状态，再把这个状态送入 OPF / SCOPF / system operation pipeline。
 
 考试中最容易失分的地方不是公式本身，而是没有定义变量、没有说明 reference angle、或者把 "formulate" 写成 "solve"。题目通常明确说 "do NOT solve"，所以答案应重点写 optimisation problem 的标准形式。
 
 Final exam 的准备重点应更偏计算型模板：遇到 Q2 混合题时，power systems 部分很可能只占一部分分数，所以答案要短、准、公式清楚。
 
-# Must Know
-
-## Economic Dispatch
+# Economic Dispatch and Market Pricing (***)
 
 Economic dispatch 的问题是：在不考虑 network flows, losses, network constraints 的情况下，怎样用最低成本满足总需求。
 
@@ -68,7 +69,29 @@ $$
 
 含义：在不考虑 losses 时，所有正在运行的 generator 的 marginal cost 在 optimum 相等。
 
-## Penalty Factor
+## Uniform Pricing vs Pay-as-Bid (*)
+
+Uniform pricing or pay-as-cleared means all accepted generators are paid the marginal market price. This is the New Zealand-style idea discussed in the lecture.
+
+Pay-as-bid means each accepted generator is paid its own bid price.
+
+The lecture explanation: pay-as-bid may look cheaper, but generators then try to guess the marginal price rather than bid true cost, which can distort dispatch.
+
+| Aspect | Uniform-price / pay-as-cleared | Pay-as-bid |
+|---|---|---|
+| Used in lecture examples | NZ and most power markets | UK-style example mentioned in lecture |
+| Payment rule | All accepted generators receive the same market-clearing price | Each accepted generator receives its own bid price |
+| Price-setting idea | The marginal accepted generator sets the market price | Each generator's bid determines its own payment |
+| Incentive | Generators can bid closer to cost because the clearing price is set by the market | Generators try to guess the clearing price, not necessarily reveal true cost |
+| Low-cost generator outcome | Low-cost generators benefit when expensive generators enter, because the market price rises | Low-cost generators are paid their bid, so bidding too low reduces their revenue |
+| Main risk | High prices when expensive marginal generation is needed | Strategic bidding can distort dispatch and may cause inefficient outcomes |
+| Exam sentence | Uniform pricing pays all accepted generators the marginal market price, so cheap generators earn more when the marginal generator is expensive. | Pay-as-bid seems cheaper, but bidders may inflate bids to estimate the market price, reducing efficiency. |
+
+Short answer template:
+
+> In a uniform-price market, all accepted generators are paid the market-clearing price, usually set by the marginal generator. This is why low-cost generators, such as hydro, benefit when expensive gas generation is needed: their own cost is low, but they receive the higher market price. In a pay-as-bid market, each generator is paid its own bid. This may look cheaper, but it encourages generators to guess the clearing price rather than bid true marginal cost, which can reduce efficiency.
+
+# Penalty Factors and Loss Approximation (**)
 
 Economic dispatch 本身不看 generator 和 load 的位置。为了近似 transmission losses，可以把 loss term 放进 power balance：
 
@@ -109,7 +132,9 @@ $$
 
 > A penalty factor modifies the apparent incremental cost of a generator to account for how changing that generator output changes transmission losses. It is a location-dependent correction to economic dispatch.
 
-## Optimal Power Flow
+Recognition-level note (*): exact analytic loss-derivative calculations are lower priority than understanding why location changes apparent marginal cost.
+
+# OPF and Power-Flow Physics (***)
 
 OPF 的目标仍然是 minimum generation cost，但它加入 network physics 和 equipment limits。它比 economic dispatch 多了 power-flow equations 和 network constraints。
 
@@ -132,9 +157,19 @@ OPF 中的 constraints 包括：
 
 老师强调：不需要完全理解 ENEL382/480 的所有 power-flow equations，但必须知道 OPF solution must be consistent with the physics of the network。
 
-## Background: Power Flow Equations
+## Locational Marginal Pricing (*)
+
+In OPF, Lagrange multipliers can be interpreted as prices. In a networked power system, nodal prices or locational marginal prices reflect generation costs, losses, and constraints at a location.
+
+Short answer:
+
+> Locational marginal prices are derived from the OPF Lagrange multipliers. They represent the marginal cost of serving one more unit of demand at a node, including the effect of losses and network/security constraints.
+
+## Power Flow Equations as OPF Background (**)
 
 这一节是背景知识，不是本课程要求你从头推导的内容。它的作用是帮助理解为什么 AC OPF 会变成 nonlinear 和 non-convex，也解释为什么 DC OPF 的近似可以把问题大幅简化。
+
+如果对 voltage、current、$P/Q$ 的物理直觉还不稳，先读 `appendix_power_systems_ee_background.qmd` 中的 `Power Flow Physical Intuition` 小节；那里把 `notes.md` 的潮流理解整合成了更基础的电路视角。
 
 ### What Power Flow Solves
 
@@ -266,7 +301,9 @@ $$
 
 这就是本章 DC OPF 和 state estimation 线性题的核心公式。它把 nonlinear trigonometric equation 变成 linear equation，所以 optimisation problem 会快很多。
 
-## Why AC OPF Is Difficult
+# AC OPF Difficulty, Convexity, and Algorithms (***)
+
+## Why AC OPF Is Difficult (***)
 
 考试高频问法：Why is AC OPF computationally difficult for a large power system?
 
@@ -289,7 +326,7 @@ Mitigation methods:
 - check a DC OPF solution using a standard AC power flow;
 - screen a subset of contingencies instead of solving full SC-OPF.
 
-## Background: Convex Optimisation and KKT Conditions
+## Convex Optimisation and KKT Background (**)
 
 这一节是为了补回 Term 1 背景。Power systems 这一章反复说 AC OPF is non-convex，所以需要知道 convex optimisation 的精确定义，以及 KKT 在凸问题和非凸问题里的意义不同。
 
@@ -417,7 +454,7 @@ This is the link to AC OPF:
 
 DC OPF, by contrast, uses linear approximations. If the cost is linear or convex quadratic and constraints are linear, DC OPF becomes a linear program or convex quadratic program. Then KKT/duality theory behaves much more cleanly.
 
-## Algorithm Choice for AC OPF
+## Algorithm Choice for AC OPF (**)
 
 For large AC OPF, the preferred practical algorithm is an interior-point method.
 
@@ -459,7 +496,7 @@ $$
 
 As $\mu$ decreases, the solution approaches the constrained optimum while staying inside the feasible region.
 
-## OPF Scaling Estimate
+## OPF Scaling Estimate (**)
 
 2024 试题出现过 computational expense estimate。教授最新说明 final exam 更偏 mathematical，所以这个模板应会用。
 
@@ -500,7 +537,11 @@ Example answer structure:
 
 > Estimate the effective problem size for DC OPF and AC OPF, compare them using the given cubic scaling law, then multiply by the nonlinearity factor. The precise count may be approximate, but the important point is that AC OPF grows much faster because it includes voltage magnitudes, reactive power, nonlinear power-flow equations, and more constraints.
 
-## DC OPF
+Recognition-level note (*): detailed sparse linear algebra inside an interior-point solver is not the focus here.
+
+# DC OPF and Security-Constrained Operation (***)
+
+## DC OPF (***)
 
 DC OPF is not a DC network model. It is a DC approximation of the AC power-flow equations.
 
@@ -539,7 +580,7 @@ Common industrial workflow:
 3. Run a standard AC power flow to check feasibility.
 4. If infeasible, add heuristic/security constraints and re-solve.
 
-## Security-Constrained OPF
+## Security-Constrained OPF (***)
 
 SC-OPF means the dispatch must remain within operational limits not only in the base case, but also under plausible contingencies, such as line or generator outages.
 
@@ -574,7 +615,9 @@ Lecture B 进一步强调，industry 中更常见的是 security-constrained eco
 
 这不是追求最低成本，而是在 cost 和 safety 之间取平衡。Lecture B 的直觉类比是：不要站在悬崖边缘追求最优视野，而要离边缘留出 margin。Power system 是 critical infrastructure，所以 slight sub-optimality is acceptable if it avoids blackout risk.
 
-## State Estimation
+# State Estimation, WLS, and System Operation (***)
+
+## State Estimation (***)
 
 State estimation estimates the system states from noisy and incomplete measurements. In power systems, states usually include voltage magnitudes and voltage angles. In a DC approximation, states may be only voltage angles.
 
@@ -628,15 +671,196 @@ $$
 \hat{x}=(H^T R^{-1}H)^{-1}H^T R^{-1}z
 $$
 
+This comes from the normal equation. For the weighted linear case, define:
+
+$$
+J(x)=(z-Hx)^TR^{-1}(z-Hx)
+$$
+
+Expand the quadratic:
+
+$$
+J(x)=z^TR^{-1}z-z^TR^{-1}Hx-(Hx)^TR^{-1}z+(Hx)^TR^{-1}Hx
+$$
+
+Since $R^{-1}$ is symmetric, the two middle terms are scalars and combine:
+
+$$
+J(x)=z^TR^{-1}z-2x^TH^TR^{-1}z+x^TH^TR^{-1}Hx
+$$
+
+Take the gradient with respect to $x$ and set it to zero:
+
+$$
+\nabla J(x)=-2H^TR^{-1}z+2H^TR^{-1}Hx=0
+$$
+
+At the optimum $x^*$:
+
+$$
+H^TR^{-1}Hx^*=H^TR^{-1}z
+$$
+
+This is the weighted normal equation. If $H^TR^{-1}H$ is invertible:
+
+$$
+x^*=(H^TR^{-1}H)^{-1}H^TR^{-1}z
+$$
+
+For ordinary least squares, $R=I$, so this reduces to:
+
+$$
+H^THx^*=H^Tz
+$$
+
+and:
+
+$$
+x^*=(H^TH)^{-1}H^Tz
+$$
+
 Important: if only angle differences are measured, one angle reference is needed. For example, set $\theta_1=0$ or $\theta_3=0$.
 
-## Lecture B State Estimation Details
+## Lecture B State Estimation Details (***)
 
 Lecture B gives the practical construction logic for the least-squares matrices. The key idea is:
 
 > $H$ is the system model: given the state variables, what measurements would the model predict?
 
 For DC state estimation, the state variables are voltage angles, after choosing one reference angle. Measurements are usually line power flows.
+
+### What $h(x)$ Means in the Three-Bus Example
+
+In this course example, the measurement vector is often written using measured power flows rather than the generic symbol $z$:
+
+$$
+P^{meas}=
+\begin{bmatrix}
+P_{12}^{meas}\\
+P_{13}^{meas}\\
+P_{32}^{meas}
+\end{bmatrix}
+=
+\begin{bmatrix}
+0.62\\
+0.06\\
+0.37
+\end{bmatrix}
+$$
+
+The state is not the measured power flow itself. In the DC model, the hidden state is the set of bus voltage angles. If bus 1 is chosen as the reference angle, then:
+
+$$
+\theta_1=0
+$$
+
+and the unknown state vector is:
+
+$$
+x=
+\begin{bmatrix}
+\theta_2\\
+\theta_3
+\end{bmatrix}
+$$
+
+The measurement function $h(x)$ answers this question:
+
+> If the state were $x$, what line-flow measurements would the model predict?
+
+Using the DC power-flow equation:
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j)
+$$
+
+the predicted measurement vector is:
+
+$$
+h(x)=
+\begin{bmatrix}
+B_{12}(\theta_1-\theta_2)\\
+B_{13}(\theta_1-\theta_3)\\
+B_{32}(\theta_3-\theta_2)
+\end{bmatrix}
+$$
+
+Since $\theta_1=0$:
+
+$$
+h(x)=
+\begin{bmatrix}
+-B_{12}\theta_2\\
+-B_{13}\theta_3\\
+-B_{32}\theta_2+B_{32}\theta_3
+\end{bmatrix}
+$$
+
+So the nonlinear-looking notation $h(x)$ becomes a matrix multiplication:
+
+$$
+h(x)=Hx
+$$
+
+where:
+
+$$
+H=
+\begin{bmatrix}
+-B_{12} & 0\\
+0 & -B_{13}\\
+-B_{32} & B_{32}
+\end{bmatrix}
+$$
+
+For the lecture numbers:
+
+$$
+B_{12}=5,\quad B_{13}=2.5,\quad B_{32}=4
+$$
+
+so:
+
+$$
+H=
+\begin{bmatrix}
+-5 & 0\\
+0 & -2.5\\
+-4 & 4
+\end{bmatrix}
+$$
+
+This is the matrix used in the Python code. The code is doing:
+
+$$
+P^{meas}\approx Hx
+$$
+
+or explicitly:
+
+$$
+\begin{bmatrix}
+0.62\\
+0.06\\
+0.37
+\end{bmatrix}
+\approx
+\begin{bmatrix}
+-5 & 0\\
+0 & -2.5\\
+-4 & 4
+\end{bmatrix}
+\begin{bmatrix}
+\theta_2\\
+\theta_3
+\end{bmatrix}
+$$
+
+The least-squares estimate chooses $\theta_2$ and $\theta_3$ so that the predicted flows $H x$ are as close as possible to the measured flows $P^{meas}$. After estimating the angles, any line flow can be reconstructed with:
+
+$$
+\hat{P}_{ij}=B_{ij}(\hat{\theta}_i-\hat{\theta}_j)
+$$
 
 ### Reference Angle
 
@@ -667,9 +891,10 @@ If measurement $i$ has standard deviation $\sigma_i$, the weighting matrix is:
 $$
 R=
 \begin{bmatrix}
-\sigma_1^2 & 0 & \cdots\\
-0 & \sigma_2^2 & \cdots\\
-\vdots & \vdots & \ddots
+\sigma_1^2 & 0 & \cdots & 0\\
+0 & \sigma_2^2 & \cdots & 0\\
+\vdots & \vdots & \ddots & \vdots\\
+0 & 0 & \cdots & \sigma_m^2
 \end{bmatrix}
 $$
 
@@ -687,10 +912,16 @@ $$
 \sigma\approx 1\text{ MW}
 $$
 
-In per unit on a 100 MW base:
+The per-unit conversion is:
 
 $$
-\sigma\approx0.01\text{ p.u.}
+P_{\text{p.u.}}=\frac{P_{\text{actual}}}{S_{\text{base}}}
+$$
+
+So on a 100 MW base:
+
+$$
+\sigma_{\text{p.u.}}=\frac{1\text{ MW}}{100\text{ MW}}=0.01\text{ p.u.}
 $$
 
 so:
@@ -721,11 +952,51 @@ Phasor Measurement Units (PMUs) provide synchronized voltage/current phasor meas
 
 ### How State Estimation Fits with OPF
 
-The state estimator gives the system operator an estimate of current network states. These estimates can then guide OPF. For example, estimated voltage magnitudes can be inserted as constants in an improved DC OPF formulation. Since they are treated as constants, the OPF can remain linear.
+Lecture B's "How it all fits together" diagram is showing the real-time power-system operation pipeline.
 
-# Exam Templates
+The short version is:
 
-## Linear State Estimation Template
+> measurements and topology go into the state estimator; the state estimator produces a trusted snapshot of the grid; that snapshot feeds OPF, contingency analysis, and security-constrained dispatch; the final dispatch is sent as generator set points.
+
+The flow is:
+
+1. Telemetry and communications equipment collect field data from substations, such as breaker/switch status, analogue measurements, and generator outputs.
+2. The network topology program uses breaker/switch status to work out the actual current network connection pattern.
+3. The state estimator combines the updated network model, measurements, and system model description to estimate current voltages, angles, and power flows.
+4. The state estimator output is shown to the operator and can also trigger bad-measurement alarms.
+5. The estimated state then feeds OPF, contingency analysis, and security-constrained OPF.
+
+This matters because OPF should not optimise against an old or idealised network state. It needs the best available estimate of what the grid is doing now. For example, estimated voltage magnitudes can be inserted as constants in an improved DC OPF formulation. Since they are treated as constants, the OPF can remain linear.
+
+The diagram also separates several related calculations:
+
+| Block | Role |
+|---|---|
+| Economic dispatch | cheap generation allocation, mainly useful for planning or simplified dispatch |
+| OPF | dispatch with network constraints |
+| Contingency analysis | check what happens if a credible line/generator outage occurs |
+| Security-constrained OPF | choose dispatch that remains acceptable under selected contingencies |
+| State estimator | current trusted snapshot of voltages, angles, and flows |
+
+The final command sent to generators is not usually a simple economic dispatch result. In Lecture B, the lecturer says the solution actually sent to the generator is the security-constrained DC OPF result. This becomes the generator set point.
+
+Participation factors explain how a plant-level set point is split across multiple physical generator units. For example, if a station has eight identical units and the station is asked to provide a certain base power, each unit may take:
+
+$$
+\frac{1}{8}
+$$
+
+of that station output. In practice, a hydro station such as Manapouri or Benmore may receive a station-level set point, and each generator inside the station contributes a specified percentage.
+
+## Pseudo-Measurements (*)
+
+State estimation should not normally solve underdetermined problems. If there are not enough measurements, pseudo-measurements can be added using historical data, previous measurements, or operator estimates. Because they are uncertain, they should have a large standard deviation and therefore low weight.
+
+Recognition-level note (*): bad-data detection methods, PMU-based advanced state estimation, and neural-network OPF prediction are useful to recognise but not central derivations for this chapter.
+
+# Exam Formulation Templates (***)
+
+## Linear State Estimation Template (***)
 
 Typical 2025-style question:
 
@@ -793,7 +1064,7 @@ $$
 \min_x (z-Hx)^T R^{-1}(z-Hx)
 $$
 
-## Nonlinear State Estimation Template
+## Nonlinear State Estimation Template (***)
 
 Typical 2024/2025-style question:
 
@@ -867,54 +1138,9 @@ $$
 
 and use the known values $B_{12}$ and $B_{13}$ as constants.
 
-# Should Know
+# Common Mistakes and Final Checks (**)
 
-## Locational Marginal Pricing
-
-In OPF, Lagrange multipliers can be interpreted as prices. In a networked power system, nodal prices or locational marginal prices reflect generation costs, losses, and constraints at a location.
-
-Short answer:
-
-> Locational marginal prices are derived from the OPF Lagrange multipliers. They represent the marginal cost of serving one more unit of demand at a node, including the effect of losses and network/security constraints.
-
-## Uniform Pricing vs Pay-as-Bid
-
-Uniform pricing or pay-as-cleared means all accepted generators are paid the marginal market price. This is the New Zealand-style idea discussed in the lecture.
-
-Pay-as-bid means each accepted generator is paid its own bid price.
-
-The lecture explanation: pay-as-bid may look cheaper, but generators then try to guess the marginal price rather than bid true cost, which can distort dispatch.
-
-| Aspect | Uniform-price / pay-as-cleared | Pay-as-bid |
-|---|---|---|
-| Used in lecture examples | NZ and most power markets | UK-style example mentioned in lecture |
-| Payment rule | All accepted generators receive the same market-clearing price | Each accepted generator receives its own bid price |
-| Price-setting idea | The marginal accepted generator sets the market price | Each generator's bid determines its own payment |
-| Incentive | Generators can bid closer to cost because the clearing price is set by the market | Generators try to guess the clearing price, not necessarily reveal true cost |
-| Low-cost generator outcome | Low-cost generators benefit when expensive generators enter, because the market price rises | Low-cost generators are paid their bid, so bidding too low reduces their revenue |
-| Main risk | High prices when expensive marginal generation is needed | Strategic bidding can distort dispatch and may cause inefficient outcomes |
-| Exam sentence | Uniform pricing pays all accepted generators the marginal market price, so cheap generators earn more when the marginal generator is expensive. | Pay-as-bid seems cheaper, but bidders may inflate bids to estimate the market price, reducing efficiency. |
-
-Short answer template:
-
-> In a uniform-price market, all accepted generators are paid the market-clearing price, usually set by the marginal generator. This is why low-cost generators, such as hydro, benefit when expensive gas generation is needed: their own cost is low, but they receive the higher market price. In a pay-as-bid market, each generator is paid its own bid. This may look cheaper, but it encourages generators to guess the clearing price rather than bid true marginal cost, which can reduce efficiency.
-
-## Pseudo-Measurements
-
-State estimation should not normally solve underdetermined problems. If there are not enough measurements, pseudo-measurements can be added using historical data, previous measurements, or operator estimates. Because they are uncertain, they should have a large standard deviation and therefore low weight.
-
-# Recognise Only
-
-These are useful to recognise but unlikely to need full derivation in this chapter:
-
-- full AC power-flow equation derivation;
-- exact calculation of penalty factors from analytic derivatives;
-- detailed sparse linear algebra inside an interior-point solver;
-- bad data detection methods;
-- neural networks for OPF prediction;
-- PMU-based advanced state estimation.
-
-# Common Mistakes
+## Common Mistakes
 
 1. Writing `DC OPF` as if it means a DC electrical network. In this course it means a linear DC approximation of AC power flow.
 2. Forgetting the reference angle in linear state estimation.
@@ -925,7 +1151,7 @@ These are useful to recognise but unlikely to need full derivation in this chapt
 7. Treating a post-DC-OPF AC power-flow check as equivalent to solving AC OPF.
 8. Ignoring units and context: $P$ is active/real power, $Q$ is reactive power, $V$ is voltage magnitude, $\theta$ is voltage angle.
 
-# Self Check
+## Self Check
 
 Before the exam, you should be able to answer these without notes.
 
@@ -938,7 +1164,7 @@ Before the exam, you should be able to answer these without notes.
 7. Write a nonlinear least-squares formulation using $P_{ij}(x)$ and $Q_{ij}(x)$.
 8. Explain why pseudo-measurements are given large standard deviations.
 
-# Minimum Memory List
+## Minimum Memory List
 
 - `Economic dispatch`: cheapest generation subject to generator limits and total demand.
 - `Penalty factor`: changes apparent marginal cost to account for losses.

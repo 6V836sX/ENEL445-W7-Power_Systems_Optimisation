@@ -23,6 +23,9 @@ review_flow_prompt.md
 # Quarto / LaTeX intermediates
 .quarto/
 *_cache/
+notes.html
+notes_files/
+notes.md
 *.aux
 *.bbl
 *.bcf

@@ -210,7 +210,7 @@ $$
 
 If only angle differences are observable, choose a reference angle.
 
-Cases: under-determined = not enough measurements, usually add pseudo-measurements; over-determined = more measurements than states, usual least-squares case. $R=\mathrm{diag}(\sigma_i^2)$; large $\sigma_i$ means low trust/low weight.
+Cases: under-determined = not enough measurements, usually add pseudo-measurements; over-determined = more measurements than states, usual least-squares case. $R=\mathrm{diag}(\sigma_i^2)$; large $\sigma_i$ means low trust/low weight. Per-unit conversion: $P_{\text{p.u.}}=P_{\text{actual}}/S_{\text{base}}$, so $1\text{ MW}/100\text{ MW}=0.01\text{ p.u.}$
 
 ### Linear SE template
 

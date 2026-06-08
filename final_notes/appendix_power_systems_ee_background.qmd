@@ -105,6 +105,124 @@ Short explanation:
 
 > Economic dispatch mainly considers active power because generator fuel cost and system frequency balance are primarily associated with MW. Reactive power is still important, but it is more closely associated with voltage support, equipment limits, and AC feasibility.
 
+# Power Flow Physical Intuition
+
+Power flow, or load flow, describes the steady-state distribution of voltages, currents, active power, and reactive power in an AC power network.
+
+中文直觉是：
+
+> 在给定 network topology、generator outputs、loads、line parameters 的情况下，潮流计算回答：电能如何从 generators 通过 transmission lines 分布到 loads，每个 bus 的 voltage 是多少，每条 line 上有多少 $P$ 和 $Q$。
+
+Power flow 不是简单的 "current flow"。它关心的是整个网络中的 power distribution：
+
+$$
+P_{ij},\quad Q_{ij}
+$$
+
+也就是从 bus $i$ 到 bus $j$ 的 active power flow 和 reactive power flow。
+
+## Voltage and Current View
+
+AC circuit 中复功率满足：
+
+$$
+S=P+jQ=VI^*
+$$
+
+where:
+
+- $S$ is complex power;
+- $P$ is active power, the part associated with real energy transfer;
+- $Q$ is reactive power, the part associated with electric/magnetic field energy exchange;
+- $V$ is the voltage phasor;
+- $I^*$ is the conjugate of the current phasor.
+
+Line current is driven by voltage differences and limited by impedance:
+
+$$
+I_{ij}=\frac{V_i-V_j}{Z_{ij}}
+$$
+
+So voltage is the driving condition, while current is the physical result through the network impedance.
+
+This also explains line limits. Large current causes heating and losses:
+
+$$
+P_{\text{loss}}=I^2R
+$$
+
+Therefore OPF and power-flow checks must ensure that line currents or apparent powers do not exceed equipment limits.
+
+## What Drives $P$ and $Q$
+
+A useful decoupled intuition is:
+
+| Quantity | Main driver | Main operational issue |
+|---|---|---|
+| active power $P$ | voltage angle differences | generation dispatch and frequency balance |
+| reactive power $Q$ | voltage magnitude differences | voltage support and current loading |
+
+In DC power flow, this intuition becomes especially simple:
+
+$$
+P_{ij}=B_{ij}(\theta_i-\theta_j)
+$$
+
+This says:
+
+- if $\theta_i>\theta_j$, active power tends to flow from bus $i$ to bus $j$;
+- larger angle difference gives larger active power flow;
+- larger $B_{ij}$ means the line can transfer active power more easily.
+
+So:
+
+> active power tends to flow from higher voltage angle to lower voltage angle.
+
+This is similar to water flowing from higher pressure to lower pressure, but for active power in the DC approximation the important "pressure-like" quantity is voltage angle, not voltage magnitude.
+
+## AC Power Flow Is More Complete
+
+In the real AC network, power flow depends on:
+
+- voltage magnitudes $V_i,V_j$;
+- angle differences $\theta_i-\theta_j$;
+- line admittance $Y_{ij}=G_{ij}+jB_{ij}$;
+- resistance and reactance;
+- active and reactive power coupling.
+
+That is why AC power-flow equations contain terms such as:
+
+$$
+V_iV_j
+$$
+
+and:
+
+$$
+\sin(\theta_i-\theta_j),\quad \cos(\theta_i-\theta_j)
+$$
+
+These terms make AC power flow nonlinear. When those equations become equality constraints inside OPF, they also help make AC OPF non-convex.
+
+## Power Flow vs OPF
+
+Power flow is an analysis calculation:
+
+> Given generator outputs and loads, what happens in the network?
+
+OPF is an optimisation problem:
+
+> What generator outputs should we choose to minimise cost while keeping the network feasible?
+
+| Concept | Question |
+|---|---|
+| Power flow | Given generator outputs and loads, what voltages and line flows result? |
+| OPF | Which generator outputs minimise cost while satisfying power-flow equations and equipment limits? |
+
+One-sentence memory:
+
+> Power flow is Kirchhoff laws plus AC circuit physics applied to the whole grid; OPF chooses a dispatch that is both economical and physically feasible.
+
 # Incremental Cost and Lambda
 
 Generator $i$ 的成本函数可以写成：
